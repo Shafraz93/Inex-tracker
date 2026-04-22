@@ -16,6 +16,7 @@ export function normalizePools(data: unknown): SeetuPoolRow[] {
     ...row,
     start_month: row.start_month ?? null,
     contribution_per_slot: Number(row.contribution_per_slot ?? 20000),
+    is_locked: Boolean(row.is_locked),
     seetu_roster_rows: [...(row.seetu_roster_rows ?? [])]
       .sort((a, b) => a.sort_order - b.sort_order)
       .map((r) => ({

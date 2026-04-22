@@ -25,6 +25,7 @@ create table public.seetu_pools (
   title text not null,
   start_month date,
   contribution_per_slot numeric not null check (contribution_per_slot > 0),
+  is_locked boolean not null default false,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );

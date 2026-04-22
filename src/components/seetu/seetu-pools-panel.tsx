@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronDown, Plus, Trash2 } from "lucide-react";
+import { ChevronDown, Lock, Plus, Trash2, Unlock } from "lucide-react";
 import Link from "next/link";
 
 import { useSeetu } from "@/contexts/seetu-context";
@@ -50,7 +50,11 @@ export function SeetuPoolsPanel() {
     splitRowEqually,
     generateCycles,
     syncCycleMonthsToPoolStart,
+    lockPool,
+    unlockPool,
   } = useSeetu();
+
+  const locked = selected?.is_locked ?? false;
 
   if (!hydrated) {
     return (
@@ -135,6 +139,7 @@ export function SeetuPoolsPanel() {
               {pools.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.title}
+                  {p.is_locked ? " (locked)" : ""}
                 </option>
               ))}
             </select>
@@ -167,6 +172,45 @@ export function SeetuPoolsPanel() {
             ) : null}
           </div>
 
+          {locked ? (
+            <div className="space-y-2 rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm">
+              <p className="font-medium text-amber-900 dark:text-amber-100">
+                This pool is locked
+              </p>
+              <p className="text-muted-foreground leading-relaxed">
+                Roster, settings, and payout checkmarks cannot be changed.
+                Unlock if you need to edit again.
+              </p>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="border-amber-600/50"
+                onClick={() => unlockPool(selected.id)}
+              >
+                <Unlock className="size-4" />
+                Unlock pool
+              </Button>
+            </div>
+          ) : selected.seetu_cycles.length > 0 ? (
+            <div className="flex flex-col gap-2 rounded-xl border border-border bg-muted/30 px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-muted-foreground leading-relaxed">
+                Finished this seetu? Lock the pool to prevent accidental edits
+                to roster, amounts, and payment tracking.
+              </p>
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                className="shrink-0"
+                onClick={() => lockPool(selected.id)}
+              >
+                <Lock className="size-4" />
+                Lock pool
+              </Button>
+            </div>
+          ) : null}
+
           <Card>
             <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
               <div className="min-w-0 flex-1 space-y-3">
@@ -175,6 +219,7 @@ export function SeetuPoolsPanel() {
                   <Input
                     id="pool-title"
                     value={selected.title}
+                    disabled={locked}
                     onChange={(e) =>
                       setPools((prev) =>
                         normalizePools(
@@ -205,6 +250,7 @@ export function SeetuPoolsPanel() {
                   <Input
                     id="pool-first-month-edit"
                     type="month"
+                    disabled={locked}
                     value={
                       selected.start_month
                         ? selected.start_month.slice(0, 7)
@@ -238,6 +284,7 @@ export function SeetuPoolsPanel() {
                   <Input
                     id="pool-slot"
                     inputMode="decimal"
+                    disabled={locked}
                     value={String(selected.contribution_per_slot)}
                     onChange={(e) => {
                       const v = parseFloat(e.target.value.replace(/,/g, ""));
@@ -323,6 +370,7 @@ export function SeetuPoolsPanel() {
                                 type="button"
                                 variant="outline"
                                 size="xs"
+                                disabled={locked}
                                 onClick={() =>
                                   splitRowEqually(selected.id, row.id)
                                 }
@@ -335,6 +383,7 @@ export function SeetuPoolsPanel() {
                               variant="ghost"
                               size="icon-xs"
                               className="text-muted-foreground"
+                              disabled={locked}
                               aria-label="Delete row"
                               onClick={() =>
                                 deleteRosterRow(row.id, selected.id)
@@ -355,6 +404,7 @@ export function SeetuPoolsPanel() {
                                 className="min-w-0 flex-1 sm:max-w-[180px]"
                                 aria-label="Member name"
                                 placeholder="Member"
+                                disabled={locked}
                                 value={p.name}
                                 onChange={(e) => {
                                   const v = e.target.value;
@@ -434,6 +484,7 @@ export function SeetuPoolsPanel() {
                                   inputMode="decimal"
                                   className="h-8"
                                   placeholder="Auto"
+                                  disabled={locked}
                                   value={
                                     p.contribution_amount == null
                                       ? ""
@@ -491,6 +542,7 @@ export function SeetuPoolsPanel() {
                                 variant="ghost"
                                 size="icon-sm"
                                 className="text-muted-foreground shrink-0 sm:ml-auto"
+                                disabled={locked}
                                 aria-label={`Remove ${p.name}`}
                                 onClick={() =>
                                   deletePayer(p.id, row.id, selected.id)
@@ -504,6 +556,7 @@ export function SeetuPoolsPanel() {
                             <Input
                               placeholder="Add another person to this row"
                               value={newPayerByRow[row.id] ?? ""}
+                              disabled={locked}
                               onChange={(e) =>
                                 setNewPayerByRow((prev) => ({
                                   ...prev,
@@ -518,6 +571,7 @@ export function SeetuPoolsPanel() {
                               size="sm"
                               onClick={() => addPayer(row.id, selected.id)}
                               disabled={
+                                locked ||
                                 !(newPayerByRow[row.id] ?? "").trim()
                               }
                             >
@@ -538,6 +592,7 @@ export function SeetuPoolsPanel() {
                 variant="outline"
                 size="sm"
                 className="rounded-full"
+                disabled={locked}
                 onClick={() => addRosterRow(selected.id)}
               >
                 <Plus className="size-4" />
@@ -549,6 +604,7 @@ export function SeetuPoolsPanel() {
                 size="sm"
                 className="rounded-full"
                 disabled={
+                  locked ||
                   selected.seetu_roster_rows.filter(
                     (r) => r.seetu_row_payers.length > 0
                   ).length === 0

@@ -63,6 +63,8 @@ type SeetuContextValue = {
     >
   ) => void;
   syncCycleMonthsToPoolStart: (poolId: string) => void;
+  lockPool: (poolId: string) => void;
+  unlockPool: (poolId: string) => void;
 };
 
 const SeetuContext = React.createContext<SeetuContextValue | null>(null);
@@ -196,6 +198,7 @@ export function SeetuProvider({ children }: { children: React.ReactNode }) {
           title: newTitle.trim(),
           start_month: firstDayFromMonthInput(newStartMonth),
           contribution_per_slot: amt,
+          is_locked: false,
           seetu_roster_rows: [],
           seetu_cycles: [],
         },
@@ -236,11 +239,40 @@ export function SeetuProvider({ children }: { children: React.ReactNode }) {
     [supabase, userId]
   );
 
+  const lockPool = React.useCallback((poolId: string) => {
+    if (
+      !confirm(
+        "Lock this pool? You will not be able to change roster, amounts, months, or payment checkmarks until you unlock it."
+      )
+    )
+      return;
+    setPools((prev) =>
+      normalizePools(
+        prev.map((p) => (p.id === poolId ? { ...p, is_locked: true } : p))
+      )
+    );
+  }, []);
+
+  const unlockPool = React.useCallback((poolId: string) => {
+    if (
+      !confirm(
+        "Unlock this pool? You will be able to edit it again."
+      )
+    )
+      return;
+    setPools((prev) =>
+      normalizePools(
+        prev.map((p) => (p.id === poolId ? { ...p, is_locked: false } : p))
+      )
+    );
+  }, []);
+
   const addRosterRow = React.useCallback((poolId: string) => {
     setPools((prev) =>
       normalizePools(
         prev.map((p) => {
           if (p.id !== poolId) return p;
+          if (p.is_locked) return p;
           const nextOrder =
             (p.seetu_roster_rows.reduce(
               (m, x) => Math.max(m, x.sort_order),
@@ -281,6 +313,7 @@ export function SeetuProvider({ children }: { children: React.ReactNode }) {
         normalizePools(
           prev.map((p) => {
             if (p.id !== poolId) return p;
+            if (p.is_locked) return p;
             const row = p.seetu_roster_rows.find((r) => r.id === rowId);
             if (!row) return p;
             const nextOrder =
@@ -329,17 +362,17 @@ export function SeetuProvider({ children }: { children: React.ReactNode }) {
       return;
     setPools((prev) =>
       normalizePools(
-        prev.map((p) =>
-          p.id !== poolId
-            ? p
-            : {
-                ...p,
-                seetu_cycles: [],
-                seetu_roster_rows: p.seetu_roster_rows.filter(
-                  (r) => r.id !== rowId
-                ),
-              }
-        )
+        prev.map((p) => {
+          if (p.id !== poolId) return p;
+          if (p.is_locked) return p;
+          return {
+            ...p,
+            seetu_cycles: [],
+            seetu_roster_rows: p.seetu_roster_rows.filter(
+              (r) => r.id !== rowId
+            ),
+          };
+        })
       )
     );
   }, []);
@@ -348,6 +381,7 @@ export function SeetuProvider({ children }: { children: React.ReactNode }) {
     (payerId: string, rowId: string, poolId: string) => {
       setPools((prev) => {
         const pool = prev.find((p) => p.id === poolId);
+        if (pool?.is_locked) return prev;
         const row = pool?.seetu_roster_rows.find((r) => r.id === rowId);
         if (!row) return prev;
         if (row.seetu_row_payers.length <= 1) {
@@ -408,7 +442,9 @@ export function SeetuProvider({ children }: { children: React.ReactNode }) {
         prev.map((pool) =>
           pool.id !== poolId
             ? pool
-            : {
+            : pool.is_locked
+              ? pool
+              : {
                 ...pool,
                 seetu_roster_rows: pool.seetu_roster_rows.map((r) =>
                   r.id !== rowId
@@ -430,6 +466,7 @@ export function SeetuProvider({ children }: { children: React.ReactNode }) {
   const generateCycles = React.useCallback((poolId: string) => {
     setPools((prev) => {
       const pool = prev.find((p) => p.id === poolId);
+      if (pool?.is_locked) return prev;
       const rows = pool?.seetu_roster_rows ?? [];
       const rowsOk = rows.filter((r) => r.seetu_row_payers.length > 0);
       if (!pool || rowsOk.length === 0) {
@@ -475,6 +512,7 @@ export function SeetuProvider({ children }: { children: React.ReactNode }) {
         normalizePools(
           prev.map((pool) => {
             if (pool.id !== poolId) return pool;
+            if (pool.is_locked) return pool;
             const hasCycle = pool.seetu_cycles.some((c) => c.id === cycleId);
             if (!hasCycle) return pool;
             return {
@@ -514,6 +552,7 @@ export function SeetuProvider({ children }: { children: React.ReactNode }) {
         normalizePools(
           prev.map((pool) => {
             if (pool.id !== poolId) return pool;
+            if (pool.is_locked) return pool;
             return {
               ...pool,
               seetu_cycles: pool.seetu_cycles.map((c) =>
@@ -531,7 +570,12 @@ export function SeetuProvider({ children }: { children: React.ReactNode }) {
     setPools((prev) =>
       normalizePools(
         prev.map((p) => {
-          if (p.id !== poolId || !p.start_month || p.seetu_cycles.length === 0) {
+          if (
+            p.id !== poolId ||
+            p.is_locked ||
+            !p.start_month ||
+            p.seetu_cycles.length === 0
+          ) {
             return p;
           }
           return {
@@ -575,6 +619,8 @@ export function SeetuProvider({ children }: { children: React.ReactNode }) {
       setPaid,
       updateCycle,
       syncCycleMonthsToPoolStart,
+      lockPool,
+      unlockPool,
     }),
     [
       pools,
@@ -597,6 +643,8 @@ export function SeetuProvider({ children }: { children: React.ReactNode }) {
       setPaid,
       updateCycle,
       syncCycleMonthsToPoolStart,
+      lockPool,
+      unlockPool,
     ]
   );
 

@@ -30,6 +30,8 @@ export type SeetuPoolRow = {
   /** First month of the seetu (YYYY-MM-DD, usually day 1). Cycle 1 = this month, cycle 2 = next month, etc. */
   start_month: string | null;
   contribution_per_slot: number;
+  /** When true, roster, pool settings, and payout edits are disabled. */
+  is_locked: boolean;
   seetu_roster_rows: SeetuRosterRow[];
   seetu_cycles: SeetuCycleRow[];
 };

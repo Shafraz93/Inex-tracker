@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, Lock } from "lucide-react";
 import Link from "next/link";
 
 import { useSeetu } from "@/contexts/seetu-context";
@@ -33,6 +33,8 @@ export function SeetuPayoutsPanel() {
     updateCycle,
   } = useSeetu();
 
+  const locked = selected?.is_locked ?? false;
+
   if (!hydrated) {
     return (
       <p className="text-muted-foreground text-sm">Loading saved data…</p>
@@ -63,6 +65,7 @@ export function SeetuPayoutsPanel() {
               {pools.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.title}
+                  {p.is_locked ? " (locked)" : ""}
                 </option>
               ))}
             </select>
@@ -73,6 +76,19 @@ export function SeetuPayoutsPanel() {
 
       {selected ? (
         <section className="flex flex-col gap-6">
+          {locked ? (
+            <div className="flex gap-2 rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-950 dark:text-amber-50">
+              <Lock className="mt-0.5 size-4 shrink-0" />
+              <p className="leading-relaxed">
+                This pool is <strong>locked</strong>. Payment checkmarks and
+                month settings cannot be changed. Unlock it on the{" "}
+                <Link href="/seetu/pools" className="text-primary underline">
+                  Pools
+                </Link>{" "}
+                page if you need to edit.
+              </p>
+            </div>
+          ) : null}
           <div className="bg-primary/10 border-primary/25 space-y-2 rounded-xl border px-4 py-4 text-sm">
             <p className="text-primary font-medium">Your workflow</p>
             <p className="text-foreground leading-relaxed">
@@ -176,6 +192,7 @@ export function SeetuPayoutsPanel() {
                           <Input
                             id={`month-${cycle.id}`}
                             type="date"
+                            disabled={locked}
                             value={cycle.month_start ?? ""}
                             onChange={(e) =>
                               updateCycle(selected.id, cycle.id, {
@@ -190,9 +207,11 @@ export function SeetuPayoutsPanel() {
                           </Label>
                           <select
                             id={`recv-${cycle.id}`}
+                            disabled={locked}
                             className={cn(
                               "border-input bg-background h-9 w-full rounded-md border px-2 text-sm",
-                              "outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]"
+                              "outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]",
+                              locked && "cursor-not-allowed opacity-60"
                             )}
                             value={cycle.receiver_roster_row_id ?? ""}
                             onChange={(e) =>
@@ -233,11 +252,17 @@ export function SeetuPayoutsPanel() {
                           return (
                             <label
                               key={pid}
-                              className="bg-muted/40 flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-sm"
+                              className={cn(
+                                "bg-muted/40 flex items-center gap-2 rounded-lg px-3 py-2 text-sm",
+                                locked
+                                  ? "cursor-not-allowed opacity-70"
+                                  : "cursor-pointer"
+                              )}
                             >
                               <input
                                 type="checkbox"
                                 className="accent-primary size-4"
+                                disabled={locked}
                                 checked={pm.get(pid) ?? false}
                                 onChange={(e) =>
                                   setPaid(
