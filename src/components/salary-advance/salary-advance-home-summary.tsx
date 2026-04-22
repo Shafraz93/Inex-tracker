@@ -43,8 +43,8 @@ export function SalaryAdvanceHomeSummary() {
     <Card
       size="sm"
       className={cn(
-        "w-full border-emerald-500/40 bg-emerald-500/[0.08] ring-emerald-500/25",
-        "dark:border-emerald-400/65 dark:bg-emerald-400/[0.12] dark:ring-emerald-400/30"
+        "w-full border-emerald-500/40 ring-emerald-500/25",
+        "dark:border-emerald-400/65 dark:ring-emerald-400/30"
       )}
     >
       <CardHeader className="border-b border-emerald-500/25 dark:border-emerald-400/40">

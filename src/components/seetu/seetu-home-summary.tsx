@@ -116,9 +116,8 @@ export function SeetuHomeSummary() {
     <Card
       size="sm"
       className={cn(
-        "w-full border-sky-500/40 bg-sky-500/[0.08] ring-sky-500/25",
-        /* Dark theme --primary is near-white, so use real sky hues for a visible tint */
-        "dark:border-sky-400/70 dark:bg-sky-400/[0.14] dark:ring-sky-400/35"
+        "w-full border-sky-500/40 ring-sky-500/25",
+        "dark:border-sky-400/70 dark:ring-sky-400/35"
       )}
     >
       <CardHeader className="border-b border-sky-500/25 dark:border-sky-400/45">
