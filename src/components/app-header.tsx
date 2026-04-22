@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { Menu } from "lucide-react";
 import * as React from "react";
 
@@ -12,15 +12,32 @@ import { Button } from "@/components/ui/button";
 import {
   Sheet,
   SheetContent,
+  SheetFooter,
   SheetHeader,
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
+import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 
 export function AppHeader() {
   const pathname = usePathname();
+  const router = useRouter();
   const [menuOpen, setMenuOpen] = React.useState(false);
+  const [signingOut, setSigningOut] = React.useState(false);
+
+  async function handleSignOut() {
+    setSigningOut(true);
+    try {
+      const supabase = createClient();
+      await supabase.auth.signOut();
+      setMenuOpen(false);
+      router.push("/login");
+      router.refresh();
+    } finally {
+      setSigningOut(false);
+    }
+  }
 
   return (
     <header className="bg-background/95 supports-backdrop-filter:bg-background/80 sticky top-0 z-40 border-b border-border pt-[env(safe-area-inset-top)] backdrop-blur-sm">
@@ -55,11 +72,14 @@ export function AppHeader() {
                 </Button>
               }
             />
-            <SheetContent side="right" className="w-[min(100%,20rem)] gap-0">
+            <SheetContent
+              side="right"
+              className="flex h-full w-[min(100%,20rem)] flex-col gap-0 p-0"
+            >
               <SheetHeader className="border-b border-border text-left">
                 <SheetTitle>Menu</SheetTitle>
               </SheetHeader>
-              <nav className="flex flex-col gap-1 p-4">
+              <nav className="flex flex-1 flex-col gap-1 overflow-y-auto p-4">
                 {MAIN_NAV_ITEMS.map(({ href, label }) => {
                   const active =
                     href === "/"
@@ -82,6 +102,17 @@ export function AppHeader() {
                   );
                 })}
               </nav>
+              <SheetFooter className="border-t border-border">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full"
+                  disabled={signingOut}
+                  onClick={() => void handleSignOut()}
+                >
+                  {signingOut ? "Signing out…" : "Sign out"}
+                </Button>
+              </SheetFooter>
             </SheetContent>
           </Sheet>
           <ThemeToggle />

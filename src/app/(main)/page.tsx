@@ -14,7 +14,7 @@ export default async function Page() {
   return (
     <div className="bg-background flex min-h-0 flex-1 flex-col">
       <main className="flex flex-1 flex-col justify-center">
-        <HomeContent email={user.email} />
+        <HomeContent />
       </main>
     </div>
   );

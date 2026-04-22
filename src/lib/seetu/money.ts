@@ -1,3 +1,4 @@
+import { formatMoney } from "@/lib/currency";
 import type {
   SeetuCycleRow,
   SeetuPoolRow,
@@ -5,12 +6,7 @@ import type {
   SeetuRosterRow,
 } from "@/lib/seetu/types";
 
-export function formatMoney(amount: number): string {
-  return new Intl.NumberFormat(undefined, {
-    maximumFractionDigits: 2,
-    minimumFractionDigits: 0,
-  }).format(amount);
-}
+export { formatMoney } from "@/lib/currency";
 
 /** Per-payer amounts for one roster row; null share = equal split of remainder after fixed amounts. */
 export function rowShareBreakdown(
@@ -84,13 +80,13 @@ export function paidAmountCollectedForCycle(
   return sum;
 }
 
-/** "10000+5000+5000" display for a row */
+/** Per-payer shares for a row, each formatted as LKR (e.g. Rs 10,000 + Rs 5,000). */
 export function formatRowAmountParts(row: SeetuRosterRow, pool: SeetuPoolRow): string {
   const payers = [...row.seetu_row_payers].sort(
     (a, b) => a.sort_order - b.sort_order
   );
   if (payers.length === 0) return "—";
   return payers
-    .map((p) => String(Math.round(effectivePayerShare(p, row, pool))))
-    .join("+");
+    .map((p) => formatMoney(Math.round(effectivePayerShare(p, row, pool))))
+    .join(" + ");
 }

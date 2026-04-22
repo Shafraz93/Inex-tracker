@@ -1,14 +1,12 @@
 "use client";
 
+import type { ComponentProps } from "react";
 import { ChevronDown, Lock, Plus, Trash2, Unlock } from "lucide-react";
 import Link from "next/link";
 
 import { useSeetu } from "@/contexts/seetu-context";
-import {
-  formatMoney,
-  formatRowAmountParts,
-  rowTotal,
-} from "@/lib/seetu/money";
+import { APP_CURRENCY_CODE, formatMoney } from "@/lib/currency";
+import { formatRowAmountParts, rowTotal } from "@/lib/seetu/money";
 import { firstDayFromMonthInput, monthLabelLong } from "@/lib/seetu/months";
 import { normalizePools } from "@/lib/seetu/local-storage";
 import { rowNamesJoined } from "@/lib/seetu/seetu-shared";
@@ -23,6 +21,23 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
+
+function InputWithLkrSuffix({
+  className,
+  ...props
+}: ComponentProps<typeof Input>) {
+  return (
+    <div className="relative w-full">
+      <Input {...props} className={cn("pr-11", className)} />
+      <span
+        className="text-muted-foreground pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-xs font-medium"
+        aria-hidden
+      >
+        {APP_CURRENCY_CODE}
+      </span>
+    </div>
+  );
+}
 
 export function SeetuPoolsPanel() {
   const {
@@ -76,7 +91,8 @@ export function SeetuPoolsPanel() {
             <CardTitle>New pool</CardTitle>
             <CardDescription>
               Name the group, pick the <strong>first month</strong> (turn #1),
-              and the <strong>slot</strong> each row pays. Then add roster rows
+              and the <strong>slot ({APP_CURRENCY_CODE})</strong> each row pays.
+              Then add roster rows
               and open <Link href="/seetu/payouts" className="text-primary underline">Payouts</Link>{" "}
               to record who paid you each month.
             </CardDescription>
@@ -105,8 +121,8 @@ export function SeetuPoolsPanel() {
                 />
               </div>
               <div className="grid w-full gap-2 sm:w-40">
-                <Label htmlFor="seetu-pay">Slot per row</Label>
-                <Input
+                <Label htmlFor="seetu-pay">Slot per row ({APP_CURRENCY_CODE})</Label>
+                <InputWithLkrSuffix
                   id="seetu-pay"
                   inputMode="decimal"
                   placeholder="20000"
@@ -280,8 +296,10 @@ export function SeetuPoolsPanel() {
                   </p>
                 </div>
                 <div className="grid gap-2 sm:w-44">
-                  <Label htmlFor="pool-slot">Slot per row / cycle</Label>
-                  <Input
+                  <Label htmlFor="pool-slot">
+                    Slot per row / cycle ({APP_CURRENCY_CODE})
+                  </Label>
+                  <InputWithLkrSuffix
                     id="pool-slot"
                     inputMode="decimal"
                     disabled={locked}
@@ -322,7 +340,7 @@ export function SeetuPoolsPanel() {
             <h2 className="text-base font-semibold">Roster (turns → people)</h2>
             <p className="text-muted-foreground text-xs">
               Split a row across several people; shares should add up to the slot
-              (or leave blank for equal split).
+              in {APP_CURRENCY_CODE} (or leave blank for equal split).
             </p>
 
             {selected.seetu_roster_rows.length === 0 ? (
@@ -477,9 +495,9 @@ export function SeetuPoolsPanel() {
                                   className="text-muted-foreground text-xs"
                                   htmlFor={`seetu-share-${row.id}-${p.id}`}
                                 >
-                                  Share (blank = split)
+                                  Share ({APP_CURRENCY_CODE}, blank = split)
                                 </Label>
-                                <Input
+                                <InputWithLkrSuffix
                                   id={`seetu-share-${row.id}-${p.id}`}
                                   inputMode="decimal"
                                   className="h-8"

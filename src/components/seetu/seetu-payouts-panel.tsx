@@ -4,8 +4,8 @@ import { ChevronDown, Lock } from "lucide-react";
 import Link from "next/link";
 
 import { useSeetu } from "@/contexts/seetu-context";
+import { formatMoney } from "@/lib/currency";
 import {
-  formatMoney,
   paidAmountCollectedForCycle,
   poolPayoutPerCycle,
   rowShareBreakdown,
