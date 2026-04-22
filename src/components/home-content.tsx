@@ -25,7 +25,7 @@ export function HomeContent({ email }: HomeContentProps) {
     setLoading(true);
     const supabase = createClient();
     await supabase.auth.signOut();
-    router.push("/");
+    router.push("/login");
     router.refresh();
   }
 

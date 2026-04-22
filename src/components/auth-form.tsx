@@ -44,7 +44,7 @@ export function AuthForm() {
       setLoginError(error.message);
       return;
     }
-    router.push("/home");
+    router.push("/");
     router.refresh();
   }
 
@@ -66,7 +66,7 @@ export function AuthForm() {
       email: registerEmail.trim(),
       password: registerPassword,
       options: {
-        emailRedirectTo: `${window.location.origin}/auth/callback?next=/home`,
+        emailRedirectTo: `${window.location.origin}/auth/callback?next=/`,
       },
     });
     setRegisterLoading(false);
@@ -75,7 +75,7 @@ export function AuthForm() {
       return;
     }
     if (data.session) {
-      router.push("/home");
+      router.push("/");
       router.refresh();
       return;
     }
