@@ -35,7 +35,11 @@ function normalizeServiceLog(raw: Record<string, unknown>): BikeServiceLog {
     service_date: String(raw.service_date ?? "").slice(0, 10),
     service_charge: Number(raw.service_charge ?? 0),
     parts_title: String(raw.parts_title ?? "").trim(),
-    parts_fee: Math.max(0, Number(raw.parts_fee ?? 0)),
+    part_price: Math.max(
+      0,
+      Number(raw.part_price ?? raw.parts_fee ?? 0)
+    ),
+    part_assemble_fee: Math.max(0, Number(raw.part_assemble_fee ?? 0)),
     logged_at: raw.logged_at == null ? undefined : String(raw.logged_at),
   };
 }
@@ -45,7 +49,8 @@ function normalizeUpgradeLog(raw: Record<string, unknown>): BikeUpgradeLog {
     id: String(raw.id ?? ""),
     upgrade_date: String(raw.upgrade_date ?? "").slice(0, 10),
     title: String(raw.title ?? "").trim(),
-    fee: Math.max(0, Number(raw.fee ?? 0)),
+    part_price: Math.max(0, Number(raw.part_price ?? raw.fee ?? 0)),
+    part_assemble_fee: Math.max(0, Number(raw.part_assemble_fee ?? 0)),
     logged_at: raw.logged_at == null ? undefined : String(raw.logged_at),
   };
 }
@@ -148,7 +153,8 @@ export function addServiceLogLocal(
     service_date: input.service_date.slice(0, 10),
     service_charge: Math.max(0, input.service_charge),
     parts_title: input.parts_title.trim(),
-    parts_fee: Math.max(0, input.parts_fee),
+    part_price: Math.max(0, input.part_price),
+    part_assemble_fee: Math.max(0, input.part_assemble_fee),
     logged_at: new Date().toISOString(),
   };
   return normalizeState({
@@ -165,7 +171,8 @@ export function addUpgradeLogLocal(
     id: newEntityId(),
     upgrade_date: input.upgrade_date.slice(0, 10),
     title: input.title.trim(),
-    fee: Math.max(0, input.fee),
+    part_price: Math.max(0, input.part_price),
+    part_assemble_fee: Math.max(0, input.part_assemble_fee),
     logged_at: new Date().toISOString(),
   };
   return normalizeState({

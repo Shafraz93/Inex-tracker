@@ -44,11 +44,13 @@ export function VehicleLicenseDashboard() {
   const [serviceDate, setServiceDate] = React.useState(todayIso);
   const [serviceCharge, setServiceCharge] = React.useState("");
   const [servicePartsTitle, setServicePartsTitle] = React.useState("");
-  const [servicePartsFee, setServicePartsFee] = React.useState("");
+  const [servicePartPrice, setServicePartPrice] = React.useState("");
+  const [servicePartAssembleFee, setServicePartAssembleFee] = React.useState("");
 
   const [upgradeDate, setUpgradeDate] = React.useState(todayIso);
   const [upgradeTitle, setUpgradeTitle] = React.useState("");
-  const [upgradeFee, setUpgradeFee] = React.useState("");
+  const [upgradePartPrice, setUpgradePartPrice] = React.useState("");
+  const [upgradePartAssembleFee, setUpgradePartAssembleFee] = React.useState("");
 
   const [fuelDate, setFuelDate] = React.useState(todayIso);
   const [fuelLiters, setFuelLiters] = React.useState("");
@@ -73,7 +75,10 @@ export function VehicleLicenseDashboard() {
     e.preventDefault();
     setError(null);
     const charge = Number(serviceCharge.replace(/,/g, ""));
-    const partsFee = Number(servicePartsFee.replace(/,/g, "") || "0");
+    const partPrice = Number(servicePartPrice.replace(/,/g, "") || "0");
+    const partAssembleFee = Number(
+      servicePartAssembleFee.replace(/,/g, "") || "0"
+    );
     if (!serviceDate.trim()) {
       setError("Choose the service date.");
       return;
@@ -82,8 +87,12 @@ export function VehicleLicenseDashboard() {
       setError("Enter a valid service charge.");
       return;
     }
-    if (!Number.isFinite(partsFee) || partsFee < 0) {
-      setError("Enter a valid parts/upgrade fee.");
+    if (!Number.isFinite(partPrice) || partPrice < 0) {
+      setError("Enter a valid part price.");
+      return;
+    }
+    if (!Number.isFinite(partAssembleFee) || partAssembleFee < 0) {
+      setError("Enter a valid part assemble fee.");
       return;
     }
     setState((prev) =>
@@ -91,18 +100,23 @@ export function VehicleLicenseDashboard() {
         service_date: serviceDate,
         service_charge: charge,
         parts_title: servicePartsTitle,
-        parts_fee: partsFee,
+        part_price: partPrice,
+        part_assemble_fee: partAssembleFee,
       })
     );
     setServiceCharge("");
     setServicePartsTitle("");
-    setServicePartsFee("");
+    setServicePartPrice("");
+    setServicePartAssembleFee("");
   }
 
   function onAddUpgrade(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    const fee = Number(upgradeFee.replace(/,/g, ""));
+    const partPrice = Number(upgradePartPrice.replace(/,/g, "") || "0");
+    const partAssembleFee = Number(
+      upgradePartAssembleFee.replace(/,/g, "") || "0"
+    );
     if (!upgradeDate.trim()) {
       setError("Choose the upgrade date.");
       return;
@@ -111,19 +125,25 @@ export function VehicleLicenseDashboard() {
       setError("Enter upgrade or part change title.");
       return;
     }
-    if (!Number.isFinite(fee) || fee < 0) {
-      setError("Enter a valid upgrade fee.");
+    if (!Number.isFinite(partPrice) || partPrice < 0) {
+      setError("Enter a valid part price.");
+      return;
+    }
+    if (!Number.isFinite(partAssembleFee) || partAssembleFee < 0) {
+      setError("Enter a valid part assemble fee.");
       return;
     }
     setState((prev) =>
       addUpgradeLogLocal(prev, {
         upgrade_date: upgradeDate,
         title: upgradeTitle,
-        fee,
+        part_price: partPrice,
+        part_assemble_fee: partAssembleFee,
       })
     );
     setUpgradeTitle("");
-    setUpgradeFee("");
+    setUpgradePartPrice("");
+    setUpgradePartAssembleFee("");
   }
 
   function onAddFuel(e: React.FormEvent) {
@@ -239,8 +259,8 @@ export function VehicleLicenseDashboard() {
             <CardHeader>
               <CardTitle>Service log</CardTitle>
               <CardDescription>
-                Date of service, service charge, and any parts/upgrade fee done
-                during service.
+                Date of service, service charge, part price, and part assemble
+                fee done during service.
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -277,12 +297,24 @@ export function VehicleLicenseDashboard() {
                   />
                 </div>
                 <div className="grid w-full gap-2 sm:w-44">
-                  <Label htmlFor="service-parts-fee">Parts/upgrade fee</Label>
+                  <Label htmlFor="service-part-price">Part price</Label>
                   <Input
-                    id="service-parts-fee"
+                    id="service-part-price"
                     inputMode="decimal"
-                    value={servicePartsFee}
-                    onChange={(e) => setServicePartsFee(e.target.value)}
+                    value={servicePartPrice}
+                    onChange={(e) => setServicePartPrice(e.target.value)}
+                    placeholder="0"
+                  />
+                </div>
+                <div className="grid w-full gap-2 sm:w-44">
+                  <Label htmlFor="service-part-assemble-fee">
+                    Part assemble fee
+                  </Label>
+                  <Input
+                    id="service-part-assemble-fee"
+                    inputMode="decimal"
+                    value={servicePartAssembleFee}
+                    onChange={(e) => setServicePartAssembleFee(e.target.value)}
                     placeholder="0"
                   />
                 </div>
@@ -308,7 +340,13 @@ export function VehicleLicenseDashboard() {
                     Parts / upgrade
                   </th>
                   <th className="text-muted-foreground px-3 py-2.5 text-xs font-medium tracking-wide uppercase">
-                    Parts fee
+                    Part price
+                  </th>
+                  <th className="text-muted-foreground px-3 py-2.5 text-xs font-medium tracking-wide uppercase">
+                    Assemble fee
+                  </th>
+                  <th className="text-muted-foreground px-3 py-2.5 text-xs font-medium tracking-wide uppercase">
+                    Total
                   </th>
                   <th className="text-muted-foreground w-20 px-3 py-2.5 text-xs font-medium tracking-wide uppercase">
                     Action
@@ -327,8 +365,22 @@ export function VehicleLicenseDashboard() {
                         {row.parts_title || <span className="text-muted-foreground">-</span>}
                       </td>
                       <td className="px-3 py-2.5 font-medium tabular-nums">
-                        {row.parts_fee > 0 ? (
-                          formatMoney(row.parts_fee)
+                        {row.part_price > 0 ? (
+                          formatMoney(row.part_price)
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
+                      </td>
+                      <td className="px-3 py-2.5 font-medium tabular-nums">
+                        {row.part_assemble_fee > 0 ? (
+                          formatMoney(row.part_assemble_fee)
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
+                      </td>
+                      <td className="px-3 py-2.5 font-medium tabular-nums">
+                        {row.part_price > 0 || row.part_assemble_fee > 0 ? (
+                          formatMoney(row.part_price + row.part_assemble_fee)
                         ) : (
                           <span className="text-muted-foreground">-</span>
                         )}
@@ -350,7 +402,7 @@ export function VehicleLicenseDashboard() {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={5} className="text-muted-foreground px-3 py-6 text-center">
+                    <td colSpan={7} className="text-muted-foreground px-3 py-6 text-center">
                       No service entries yet.
                     </td>
                   </tr>
@@ -393,12 +445,24 @@ export function VehicleLicenseDashboard() {
                   />
                 </div>
                 <div className="grid w-full gap-2 sm:w-44">
-                  <Label htmlFor="upgrade-fee">Fee</Label>
+                  <Label htmlFor="upgrade-part-price">Part price</Label>
                   <Input
-                    id="upgrade-fee"
+                    id="upgrade-part-price"
                     inputMode="decimal"
-                    value={upgradeFee}
-                    onChange={(e) => setUpgradeFee(e.target.value)}
+                    value={upgradePartPrice}
+                    onChange={(e) => setUpgradePartPrice(e.target.value)}
+                    placeholder="0"
+                  />
+                </div>
+                <div className="grid w-full gap-2 sm:w-44">
+                  <Label htmlFor="upgrade-part-assemble-fee">
+                    Part assemble fee
+                  </Label>
+                  <Input
+                    id="upgrade-part-assemble-fee"
+                    inputMode="decimal"
+                    value={upgradePartAssembleFee}
+                    onChange={(e) => setUpgradePartAssembleFee(e.target.value)}
                     placeholder="0"
                   />
                 </div>
@@ -421,7 +485,13 @@ export function VehicleLicenseDashboard() {
                     Upgrade / parts
                   </th>
                   <th className="text-muted-foreground px-3 py-2.5 text-xs font-medium tracking-wide uppercase">
-                    Fee
+                    Part price
+                  </th>
+                  <th className="text-muted-foreground px-3 py-2.5 text-xs font-medium tracking-wide uppercase">
+                    Assemble fee
+                  </th>
+                  <th className="text-muted-foreground px-3 py-2.5 text-xs font-medium tracking-wide uppercase">
+                    Total
                   </th>
                   <th className="text-muted-foreground px-3 py-2.5 text-xs font-medium tracking-wide uppercase">
                     Source
@@ -437,6 +507,20 @@ export function VehicleLicenseDashboard() {
                     <tr key={row.id} className="bg-card">
                       <td className="px-3 py-2.5 tabular-nums">{row.date}</td>
                       <td className="px-3 py-2.5">{row.title}</td>
+                      <td className="px-3 py-2.5 font-medium tabular-nums">
+                        {row.part_price > 0 ? (
+                          formatMoney(row.part_price)
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
+                      </td>
+                      <td className="px-3 py-2.5 font-medium tabular-nums">
+                        {row.part_assemble_fee > 0 ? (
+                          formatMoney(row.part_assemble_fee)
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
+                      </td>
                       <td className="px-3 py-2.5 font-medium tabular-nums">
                         {formatMoney(row.amount)}
                       </td>
@@ -471,7 +555,7 @@ export function VehicleLicenseDashboard() {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={5} className="text-muted-foreground px-3 py-6 text-center">
+                    <td colSpan={7} className="text-muted-foreground px-3 py-6 text-center">
                       No upgrade entries yet.
                     </td>
                   </tr>

@@ -10,7 +10,8 @@ export type BikeServiceLog = {
   service_date: string;
   service_charge: number;
   parts_title: string;
-  parts_fee: number;
+  part_price: number;
+  part_assemble_fee: number;
   logged_at?: string;
 };
 
@@ -18,7 +19,8 @@ export type BikeUpgradeLog = {
   id: string;
   upgrade_date: string;
   title: string;
-  fee: number;
+  part_price: number;
+  part_assemble_fee: number;
   logged_at?: string;
 };
 

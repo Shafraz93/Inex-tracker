@@ -4,6 +4,8 @@ export type UpgradeExpenseRow = {
   id: string;
   date: string;
   title: string;
+  part_price: number;
+  part_assemble_fee: number;
   amount: number;
   source: "upgrade" | "service";
 };
@@ -14,12 +16,14 @@ function inRange(date: string, from: string, to: string): boolean {
 
 export function getUpgradeRows(state: VehicleLicenseState): UpgradeExpenseRow[] {
   const fromService = state.service_logs
-    .filter((row) => row.parts_fee > 0)
+    .filter((row) => row.part_price > 0 || row.part_assemble_fee > 0)
     .map((row) => ({
       id: `service:${row.id}`,
       date: row.service_date,
       title: row.parts_title || "Parts changed during service",
-      amount: row.parts_fee,
+      part_price: row.part_price,
+      part_assemble_fee: row.part_assemble_fee,
+      amount: row.part_price + row.part_assemble_fee,
       source: "service" as const,
     }));
 
@@ -27,7 +31,9 @@ export function getUpgradeRows(state: VehicleLicenseState): UpgradeExpenseRow[] 
     id: `upgrade:${row.id}`,
     date: row.upgrade_date,
     title: row.title || "Upgrade / parts change",
-    amount: row.fee,
+    part_price: row.part_price,
+    part_assemble_fee: row.part_assemble_fee,
+    amount: row.part_price + row.part_assemble_fee,
     source: "upgrade" as const,
   }));
 
