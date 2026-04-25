@@ -101,7 +101,7 @@ function normalizeFuelLogs(list: unknown): BikeFuelLog[] {
     });
 }
 
-function normalizeState(data: unknown): VehicleLicenseState {
+export function normalizeVehicleLicenseState(data: unknown): VehicleLicenseState {
   if (!data || typeof data !== "object") return emptyVehicleLicenseState();
   const raw = data as Record<string, unknown>;
   const rawDetails = (raw.details ?? {}) as Record<string, unknown>;
@@ -124,7 +124,7 @@ export function readVehicleLicenseStateFromLocal(): VehicleLicenseState {
   try {
     const raw = window.localStorage.getItem(VEHICLE_LICENSE_LOCAL_STORAGE_KEY);
     if (!raw) return emptyVehicleLicenseState();
-    return normalizeState(JSON.parse(raw));
+    return normalizeVehicleLicenseState(JSON.parse(raw));
   } catch {
     return emptyVehicleLicenseState();
   }
@@ -137,7 +137,7 @@ export function writeVehicleLicenseStateToLocal(
   try {
     window.localStorage.setItem(
       VEHICLE_LICENSE_LOCAL_STORAGE_KEY,
-      JSON.stringify(normalizeState(state))
+      JSON.stringify(normalizeVehicleLicenseState(state))
     );
   } catch {
     throw new Error("Could not save vehicle logs to this browser.");
@@ -157,7 +157,7 @@ export function addServiceLogLocal(
     part_assemble_fee: Math.max(0, input.part_assemble_fee),
     logged_at: new Date().toISOString(),
   };
-  return normalizeState({
+  return normalizeVehicleLicenseState({
     ...prev,
     service_logs: [next, ...prev.service_logs],
   });
@@ -175,7 +175,7 @@ export function addUpgradeLogLocal(
     part_assemble_fee: Math.max(0, input.part_assemble_fee),
     logged_at: new Date().toISOString(),
   };
-  return normalizeState({
+  return normalizeVehicleLicenseState({
     ...prev,
     upgrade_logs: [next, ...prev.upgrade_logs],
   });
@@ -192,7 +192,7 @@ export function addFuelLogLocal(
     amount: Math.max(0, input.amount),
     logged_at: new Date().toISOString(),
   };
-  return normalizeState({
+  return normalizeVehicleLicenseState({
     ...prev,
     fuel_logs: [next, ...prev.fuel_logs],
   });
@@ -202,7 +202,7 @@ export function removeServiceLogLocal(
   prev: VehicleLicenseState,
   logId: string
 ): VehicleLicenseState {
-  return normalizeState({
+  return normalizeVehicleLicenseState({
     ...prev,
     service_logs: prev.service_logs.filter((log) => log.id !== logId),
   });
@@ -212,7 +212,7 @@ export function removeUpgradeLogLocal(
   prev: VehicleLicenseState,
   logId: string
 ): VehicleLicenseState {
-  return normalizeState({
+  return normalizeVehicleLicenseState({
     ...prev,
     upgrade_logs: prev.upgrade_logs.filter((log) => log.id !== logId),
   });
@@ -222,7 +222,7 @@ export function removeFuelLogLocal(
   prev: VehicleLicenseState,
   logId: string
 ): VehicleLicenseState {
-  return normalizeState({
+  return normalizeVehicleLicenseState({
     ...prev,
     fuel_logs: prev.fuel_logs.filter((log) => log.id !== logId),
   });
