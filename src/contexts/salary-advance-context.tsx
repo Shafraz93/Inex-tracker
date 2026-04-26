@@ -58,9 +58,24 @@ export function SalaryAdvanceProvider({
     let cancelled = false;
 
     (async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+      let user: { id: string } | null = null;
+      try {
+        const { data, error } = await supabase.auth.getUser();
+        if (error) throw new Error(error.message);
+        user = data.user;
+      } catch (e) {
+        if (cancelled) return;
+        setUserId(null);
+        setState(emptyState());
+        lastSyncedRef.current = JSON.stringify(emptyState());
+        setError(
+          e instanceof Error
+            ? e.message
+            : "Could not read auth user for salary advance."
+        );
+        setHydrated(true);
+        return;
+      }
       if (cancelled) return;
 
       if (!user) {

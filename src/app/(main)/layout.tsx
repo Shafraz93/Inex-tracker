@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 
 import { AppHeader } from "@/components/app-header";
 import { AppProviders } from "@/components/app-providers";
+import { MobileFooterNav } from "@/components/mobile-footer-nav";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function MainLayout({
@@ -21,7 +22,10 @@ export default async function MainLayout({
   return (
     <div className="flex min-h-full flex-1 flex-col">
       <AppHeader />
-      <AppProviders>{children}</AppProviders>
+      <div className="pb-20 md:pb-0">
+        <AppProviders>{children}</AppProviders>
+      </div>
+      <MobileFooterNav />
     </div>
   );
 }

@@ -2,43 +2,15 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import { Menu, RefreshCw } from "lucide-react";
+import { RefreshCw } from "lucide-react";
 import * as React from "react";
 
-import { MAIN_NAV_ITEMS } from "@/config/main-nav";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
-import {
-  Sheet,
-  SheetContent,
-  SheetFooter,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from "@/components/ui/sheet";
-import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 
 export function AppHeader() {
-  const pathname = usePathname();
-  const router = useRouter();
-  const [menuOpen, setMenuOpen] = React.useState(false);
-  const [signingOut, setSigningOut] = React.useState(false);
   const [syncing, setSyncing] = React.useState(false);
-
-  async function handleSignOut() {
-    setSigningOut(true);
-    try {
-      const supabase = createClient();
-      await supabase.auth.signOut();
-      setMenuOpen(false);
-      router.push("/login");
-      router.refresh();
-    } finally {
-      setSigningOut(false);
-    }
-  }
 
   function handleSync() {
     setSyncing(true);
@@ -78,62 +50,6 @@ export function AppHeader() {
             <RefreshCw className={cn("size-4", syncing ? "animate-spin" : "")} />
             Sync
           </Button>
-          <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
-            <SheetTrigger
-              render={
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  className="shrink-0"
-                  aria-label="Open menu"
-                >
-                  <Menu className="size-5" />
-                </Button>
-              }
-            />
-            <SheetContent
-              side="right"
-              className="flex h-full w-[min(100%,20rem)] flex-col gap-0 p-0"
-            >
-              <SheetHeader className="border-b border-border text-left">
-                <SheetTitle>Menu</SheetTitle>
-              </SheetHeader>
-              <nav className="flex flex-1 flex-col gap-1 overflow-y-auto p-4">
-                {MAIN_NAV_ITEMS.map(({ href, label }) => {
-                  const active =
-                    href === "/"
-                      ? pathname === "/"
-                      : pathname === href || pathname.startsWith(`${href}/`);
-                  return (
-                    <Link
-                      key={href}
-                      href={href}
-                      onClick={() => setMenuOpen(false)}
-                      className={cn(
-                        "rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
-                        active
-                          ? "bg-muted text-foreground"
-                          : "text-foreground hover:bg-muted"
-                      )}
-                    >
-                      {label}
-                    </Link>
-                  );
-                })}
-              </nav>
-              <SheetFooter className="border-t border-border">
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="w-full"
-                  disabled={signingOut}
-                  onClick={() => void handleSignOut()}
-                >
-                  {signingOut ? "Signing out…" : "Sign out"}
-                </Button>
-              </SheetFooter>
-            </SheetContent>
-          </Sheet>
           <ThemeToggle />
         </div>
       </div>

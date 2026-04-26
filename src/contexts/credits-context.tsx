@@ -42,9 +42,23 @@ export function CreditsProvider({ children }: { children: React.ReactNode }) {
   React.useEffect(() => {
     let cancelled = false;
     (async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+      let user: { id: string } | null = null;
+      try {
+        const { data, error } = await supabase.auth.getUser();
+        if (error) throw new Error(error.message);
+        user = data.user;
+      } catch (e) {
+        if (cancelled) return;
+        const local = readCreditsStateFromLocal();
+        setUserId(null);
+        setState(local);
+        lastSyncedRef.current = JSON.stringify(local);
+        setError(
+          e instanceof Error ? e.message : "Could not read auth user for credits."
+        );
+        setHydrated(true);
+        return;
+      }
       if (cancelled) return;
 
       if (!user) {

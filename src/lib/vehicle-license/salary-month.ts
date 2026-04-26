@@ -8,22 +8,24 @@ export function dateToIsoLocal(d: Date): string {
 /**
  * Salary month: 6th of one month through 5th of the next.
  */
-export function currentSalaryMonthRangeIso(): { from: string; to: string } {
+export function currentSalaryMonthRangeIso(startDay = 6): { from: string; to: string } {
+  const s = Math.min(28, Math.max(1, Math.trunc(startDay)));
+  const prevEnd = s === 1 ? 1 : s - 1;
   const today = new Date();
   const y = today.getFullYear();
   const m = today.getMonth();
   const day = today.getDate();
 
-  if (day >= 6) {
+  if (day >= s) {
     return {
-      from: dateToIsoLocal(new Date(y, m, 6)),
-      to: dateToIsoLocal(new Date(y, m + 1, 5)),
+      from: dateToIsoLocal(new Date(y, m, s)),
+      to: dateToIsoLocal(new Date(y, m + 1, prevEnd)),
     };
   }
 
   return {
-    from: dateToIsoLocal(new Date(y, m - 1, 6)),
-    to: dateToIsoLocal(new Date(y, m, 5)),
+    from: dateToIsoLocal(new Date(y, m - 1, s)),
+    to: dateToIsoLocal(new Date(y, m, prevEnd)),
   };
 }
 

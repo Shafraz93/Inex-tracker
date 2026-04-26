@@ -10,6 +10,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { useAppSettings } from "@/contexts/app-settings-context";
 import { useVehicleLicense } from "@/contexts/vehicle-license-context";
 import { formatMoney } from "@/lib/currency";
 import {
@@ -20,10 +21,11 @@ import { getSalaryMonthBikeSpendBreakdown } from "@/lib/vehicle-license/summary"
 
 export function VehicleLicenseHomeSummary() {
   const { state, hydrated } = useVehicleLicense();
+  const { settings, hydrated: settingsHydrated } = useAppSettings();
 
-  if (!hydrated) return null;
+  if (!hydrated || !settingsHydrated) return null;
 
-  const range = currentSalaryMonthRangeIso();
+  const range = currentSalaryMonthRangeIso(settings.month_start_day);
   const breakdown = getSalaryMonthBikeSpendBreakdown(state, range);
 
   return (

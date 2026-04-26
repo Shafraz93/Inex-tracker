@@ -3,6 +3,7 @@
 
 -- Drop legacy / previous objects to rebuild from a single migration.
 drop table if exists public.credits_states cascade;
+drop table if exists public.app_settings_states cascade;
 drop table if exists public.budget_tracker_states cascade;
 drop table if exists public.vehicle_license_states cascade;
 drop table if exists public.salary_advance_repayments cascade;
@@ -308,4 +309,34 @@ create policy "credits_states_update_own"
 
 create policy "credits_states_delete_own"
   on public.credits_states for delete to authenticated
+  using (auth.uid() = user_id);
+
+-- App settings snapshot
+create table public.app_settings_states (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null unique references auth.users (id) on delete cascade,
+  state_json jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index app_settings_states_user_idx on public.app_settings_states (user_id);
+
+alter table public.app_settings_states enable row level security;
+
+create policy "app_settings_states_select_own"
+  on public.app_settings_states for select to authenticated
+  using (auth.uid() = user_id);
+
+create policy "app_settings_states_insert_own"
+  on public.app_settings_states for insert to authenticated
+  with check (auth.uid() = user_id);
+
+create policy "app_settings_states_update_own"
+  on public.app_settings_states for update to authenticated
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+create policy "app_settings_states_delete_own"
+  on public.app_settings_states for delete to authenticated
   using (auth.uid() = user_id);
