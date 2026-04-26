@@ -3,60 +3,44 @@
 import * as React from "react";
 
 import {
-  readSalaryAdvanceStateFromLocal,
-  SALARY_ADVANCE_LOCAL_STORAGE_KEY,
-} from "@/lib/salary-advance/local-storage-salary-advance";
-import {
-  fetchSalaryAdvanceState,
-  replaceSalaryAdvanceState,
-} from "@/lib/salary-advance/supabase-salary-advance";
-import type { SalaryAdvanceState } from "@/lib/salary-advance/types";
+  CREDITS_LOCAL_STORAGE_KEY,
+  emptyCreditsState,
+  readCreditsStateFromLocal,
+  writeCreditsStateToLocal,
+} from "@/lib/credits/local-storage";
+import { fetchCreditsState, replaceCreditsState } from "@/lib/credits/supabase-credits";
+import type { CreditsState } from "@/lib/credits/types";
 import { createClient } from "@/lib/supabase/client";
 
-type SalaryAdvanceContextValue = {
-  state: SalaryAdvanceState;
-  setState: React.Dispatch<React.SetStateAction<SalaryAdvanceState>>;
+type CreditsContextValue = {
+  state: CreditsState;
+  setState: React.Dispatch<React.SetStateAction<CreditsState>>;
   hydrated: boolean;
   error: string | null;
   setError: React.Dispatch<React.SetStateAction<string | null>>;
 };
 
-const SalaryAdvanceContext =
-  React.createContext<SalaryAdvanceContextValue | null>(null);
+const CreditsContext = React.createContext<CreditsContextValue | null>(null);
 
-function emptyState(): SalaryAdvanceState {
-  return {
-    starting_balance: 0,
-    starting_balance_date: null,
-    repayments: [],
-    advance_logs: [],
-  };
-}
-
-function stateMeaningful(s: SalaryAdvanceState): boolean {
+function stateMeaningful(s: CreditsState): boolean {
   return (
-    s.starting_balance > 0 ||
-    s.repayments.length > 0 ||
-    s.advance_logs.length > 0
+    !!s.global_expense_category_id ||
+    s.persons.length > 0 ||
+    s.settlements.length > 0
   );
 }
 
-export function SalaryAdvanceProvider({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export function CreditsProvider({ children }: { children: React.ReactNode }) {
   const supabase = React.useMemo(() => createClient(), []);
   const lastSyncedRef = React.useRef<string>("");
 
   const [userId, setUserId] = React.useState<string | null>(null);
-  const [state, setState] = React.useState<SalaryAdvanceState>(emptyState);
+  const [state, setState] = React.useState<CreditsState>(emptyCreditsState);
   const [hydrated, setHydrated] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     let cancelled = false;
-
     (async () => {
       const {
         data: { user },
@@ -64,24 +48,23 @@ export function SalaryAdvanceProvider({
       if (cancelled) return;
 
       if (!user) {
+        const next = readCreditsStateFromLocal();
         setUserId(null);
-        setState(emptyState());
-        lastSyncedRef.current = JSON.stringify(emptyState());
+        setState(next);
+        lastSyncedRef.current = JSON.stringify(next);
         setHydrated(true);
         return;
       }
 
       setUserId(user.id);
-
       try {
-        let next = await fetchSalaryAdvanceState(supabase, user.id);
-
+        let next = await fetchCreditsState(supabase, user.id);
         if (!stateMeaningful(next)) {
-          const local = readSalaryAdvanceStateFromLocal();
+          const local = readCreditsStateFromLocal();
           if (stateMeaningful(local)) {
-            next = await replaceSalaryAdvanceState(supabase, user.id, local);
+            next = await replaceCreditsState(supabase, user.id, local);
             try {
-              localStorage.removeItem(SALARY_ADVANCE_LOCAL_STORAGE_KEY);
+              localStorage.removeItem(CREDITS_LOCAL_STORAGE_KEY);
             } catch {
               /* ignore */
             }
@@ -91,16 +74,15 @@ export function SalaryAdvanceProvider({
         if (cancelled) return;
         setState(next);
         lastSyncedRef.current = JSON.stringify(next);
+        setError(null);
         setHydrated(true);
       } catch (e) {
-        if (!cancelled) {
-          setError(
-            e instanceof Error
-              ? e.message
-              : "Could not load salary advance from cloud."
-          );
-          setHydrated(true);
-        }
+        if (cancelled) return;
+        const local = readCreditsStateFromLocal();
+        setState(local);
+        lastSyncedRef.current = JSON.stringify(local);
+        setError(e instanceof Error ? e.message : "Could not load credits.");
+        setHydrated(true);
       }
     })();
 
@@ -110,6 +92,15 @@ export function SalaryAdvanceProvider({
   }, [supabase]);
 
   React.useEffect(() => {
+    if (!hydrated) return;
+    try {
+      writeCreditsStateToLocal(state);
+    } catch (e) {
+      console.error("Could not save credits in browser.", e);
+    }
+  }, [state, hydrated]);
+
+  React.useEffect(() => {
     if (!hydrated || !userId) return;
 
     const snapshot = JSON.stringify(state);
@@ -117,20 +108,12 @@ export function SalaryAdvanceProvider({
 
     const timer = window.setTimeout(async () => {
       try {
-        const fresh = await replaceSalaryAdvanceState(
-          supabase,
-          userId,
-          state
-        );
+        const fresh = await replaceCreditsState(supabase, userId, state);
         lastSyncedRef.current = JSON.stringify(fresh);
         setState(fresh);
         setError(null);
       } catch (e) {
-        setError(
-          e instanceof Error
-            ? e.message
-            : "Could not save salary advance to cloud."
-        );
+        setError(e instanceof Error ? e.message : "Could not save credits.");
       }
     }, 500);
 
@@ -140,16 +123,12 @@ export function SalaryAdvanceProvider({
   const fetchLatestFromCloud = React.useCallback(async () => {
     if (!userId) return;
     try {
-      const fresh = await fetchSalaryAdvanceState(supabase, userId);
+      const fresh = await fetchCreditsState(supabase, userId);
       lastSyncedRef.current = JSON.stringify(fresh);
       setState(fresh);
       setError(null);
     } catch (e) {
-      setError(
-        e instanceof Error
-          ? e.message
-          : "Could not sync salary advance from cloud."
-      );
+      setError(e instanceof Error ? e.message : "Could not sync credits.");
     }
   }, [supabase, userId]);
 
@@ -167,16 +146,12 @@ export function SalaryAdvanceProvider({
   );
 
   return (
-    <SalaryAdvanceContext.Provider value={value}>
-      {children}
-    </SalaryAdvanceContext.Provider>
+    <CreditsContext.Provider value={value}>{children}</CreditsContext.Provider>
   );
 }
 
-export function useSalaryAdvance(): SalaryAdvanceContextValue {
-  const ctx = React.useContext(SalaryAdvanceContext);
-  if (!ctx) {
-    throw new Error("useSalaryAdvance must be used within SalaryAdvanceProvider");
-  }
+export function useCredits(): CreditsContextValue {
+  const ctx = React.useContext(CreditsContext);
+  if (!ctx) throw new Error("useCredits must be used within CreditsProvider");
   return ctx;
 }

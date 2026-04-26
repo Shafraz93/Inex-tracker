@@ -17,6 +17,7 @@ function emptyDetails(): BikeDetails {
     chassis_number: "",
     year_made: "",
     model: "",
+    log_category_id: null,
   };
 }
 
@@ -33,6 +34,10 @@ function normalizeServiceLog(raw: Record<string, unknown>): BikeServiceLog {
   return {
     id: String(raw.id ?? ""),
     service_date: String(raw.service_date ?? "").slice(0, 10),
+    category_id:
+      raw.category_id == null || String(raw.category_id).trim() === ""
+        ? null
+        : String(raw.category_id),
     service_charge: Number(raw.service_charge ?? 0),
     parts_title: String(raw.parts_title ?? "").trim(),
     part_price: Math.max(
@@ -48,6 +53,10 @@ function normalizeUpgradeLog(raw: Record<string, unknown>): BikeUpgradeLog {
   return {
     id: String(raw.id ?? ""),
     upgrade_date: String(raw.upgrade_date ?? "").slice(0, 10),
+    category_id:
+      raw.category_id == null || String(raw.category_id).trim() === ""
+        ? null
+        : String(raw.category_id),
     title: String(raw.title ?? "").trim(),
     part_price: Math.max(0, Number(raw.part_price ?? raw.fee ?? 0)),
     part_assemble_fee: Math.max(0, Number(raw.part_assemble_fee ?? 0)),
@@ -59,6 +68,10 @@ function normalizeFuelLog(raw: Record<string, unknown>): BikeFuelLog {
   return {
     id: String(raw.id ?? ""),
     filled_on: String(raw.filled_on ?? "").slice(0, 10),
+    category_id:
+      raw.category_id == null || String(raw.category_id).trim() === ""
+        ? null
+        : String(raw.category_id),
     liters: Math.max(0, Number(raw.liters ?? 0)),
     amount: Math.max(0, Number(raw.amount ?? 0)),
     logged_at: raw.logged_at == null ? undefined : String(raw.logged_at),
@@ -106,16 +119,30 @@ export function normalizeVehicleLicenseState(data: unknown): VehicleLicenseState
   const raw = data as Record<string, unknown>;
   const rawDetails = (raw.details ?? {}) as Record<string, unknown>;
 
+  const service_logs = normalizeServiceLogs(raw.service_logs);
+  const upgrade_logs = normalizeUpgradeLogs(raw.upgrade_logs);
+  const fuel_logs = normalizeFuelLogs(raw.fuel_logs);
+  const fallbackCategoryId =
+    service_logs[0]?.category_id ??
+    upgrade_logs[0]?.category_id ??
+    fuel_logs[0]?.category_id ??
+    null;
+
   return {
     details: {
       bike_number: String(rawDetails.bike_number ?? "").trim(),
       chassis_number: String(rawDetails.chassis_number ?? "").trim(),
       year_made: String(rawDetails.year_made ?? "").trim(),
       model: String(rawDetails.model ?? "").trim(),
+      log_category_id:
+        rawDetails.log_category_id == null ||
+        String(rawDetails.log_category_id).trim() === ""
+          ? fallbackCategoryId
+          : String(rawDetails.log_category_id),
     },
-    service_logs: normalizeServiceLogs(raw.service_logs),
-    upgrade_logs: normalizeUpgradeLogs(raw.upgrade_logs),
-    fuel_logs: normalizeFuelLogs(raw.fuel_logs),
+    service_logs,
+    upgrade_logs,
+    fuel_logs,
   };
 }
 
@@ -151,6 +178,7 @@ export function addServiceLogLocal(
   const next: BikeServiceLog = {
     id: newEntityId(),
     service_date: input.service_date.slice(0, 10),
+    category_id: input.category_id,
     service_charge: Math.max(0, input.service_charge),
     parts_title: input.parts_title.trim(),
     part_price: Math.max(0, input.part_price),
@@ -163,6 +191,29 @@ export function addServiceLogLocal(
   });
 }
 
+export function updateServiceLogLocal(
+  prev: VehicleLicenseState,
+  logId: string,
+  input: Omit<BikeServiceLog, "id" | "logged_at">
+): VehicleLicenseState {
+  return normalizeVehicleLicenseState({
+    ...prev,
+    service_logs: prev.service_logs.map((row) =>
+      row.id === logId
+        ? {
+            ...row,
+            service_date: input.service_date.slice(0, 10),
+            category_id: input.category_id,
+            service_charge: Math.max(0, input.service_charge),
+            parts_title: input.parts_title.trim(),
+            part_price: Math.max(0, input.part_price),
+            part_assemble_fee: Math.max(0, input.part_assemble_fee),
+          }
+        : row
+    ),
+  });
+}
+
 export function addUpgradeLogLocal(
   prev: VehicleLicenseState,
   input: Omit<BikeUpgradeLog, "id" | "logged_at">
@@ -170,6 +221,7 @@ export function addUpgradeLogLocal(
   const next: BikeUpgradeLog = {
     id: newEntityId(),
     upgrade_date: input.upgrade_date.slice(0, 10),
+    category_id: input.category_id,
     title: input.title.trim(),
     part_price: Math.max(0, input.part_price),
     part_assemble_fee: Math.max(0, input.part_assemble_fee),
@@ -181,6 +233,28 @@ export function addUpgradeLogLocal(
   });
 }
 
+export function updateUpgradeLogLocal(
+  prev: VehicleLicenseState,
+  logId: string,
+  input: Omit<BikeUpgradeLog, "id" | "logged_at">
+): VehicleLicenseState {
+  return normalizeVehicleLicenseState({
+    ...prev,
+    upgrade_logs: prev.upgrade_logs.map((row) =>
+      row.id === logId
+        ? {
+            ...row,
+            upgrade_date: input.upgrade_date.slice(0, 10),
+            category_id: input.category_id,
+            title: input.title.trim(),
+            part_price: Math.max(0, input.part_price),
+            part_assemble_fee: Math.max(0, input.part_assemble_fee),
+          }
+        : row
+    ),
+  });
+}
+
 export function addFuelLogLocal(
   prev: VehicleLicenseState,
   input: Omit<BikeFuelLog, "id" | "logged_at">
@@ -188,6 +262,7 @@ export function addFuelLogLocal(
   const next: BikeFuelLog = {
     id: newEntityId(),
     filled_on: input.filled_on.slice(0, 10),
+    category_id: input.category_id,
     liters: Math.max(0, input.liters),
     amount: Math.max(0, input.amount),
     logged_at: new Date().toISOString(),
@@ -195,6 +270,27 @@ export function addFuelLogLocal(
   return normalizeVehicleLicenseState({
     ...prev,
     fuel_logs: [next, ...prev.fuel_logs],
+  });
+}
+
+export function updateFuelLogLocal(
+  prev: VehicleLicenseState,
+  logId: string,
+  input: Omit<BikeFuelLog, "id" | "logged_at">
+): VehicleLicenseState {
+  return normalizeVehicleLicenseState({
+    ...prev,
+    fuel_logs: prev.fuel_logs.map((row) =>
+      row.id === logId
+        ? {
+            ...row,
+            filled_on: input.filled_on.slice(0, 10),
+            category_id: input.category_id,
+            liters: Math.max(0, input.liters),
+            amount: Math.max(0, input.amount),
+          }
+        : row
+    ),
   });
 }
 

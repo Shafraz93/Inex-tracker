@@ -12,6 +12,7 @@ function stateIsEmpty(state: VehicleLicenseState): boolean {
     !state.details.chassis_number &&
     !state.details.year_made &&
     !state.details.model &&
+    !state.details.log_category_id &&
     state.service_logs.length === 0 &&
     state.upgrade_logs.length === 0 &&
     state.fuel_logs.length === 0

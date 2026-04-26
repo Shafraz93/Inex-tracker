@@ -4,6 +4,7 @@ export type UpgradeExpenseRow = {
   id: string;
   date: string;
   title: string;
+  category_id: string | null;
   part_price: number;
   part_assemble_fee: number;
   amount: number;
@@ -21,6 +22,7 @@ export function getUpgradeRows(state: VehicleLicenseState): UpgradeExpenseRow[] 
       id: `service:${row.id}`,
       date: row.service_date,
       title: row.parts_title || "Parts changed during service",
+      category_id: row.category_id,
       part_price: row.part_price,
       part_assemble_fee: row.part_assemble_fee,
       amount: row.part_price + row.part_assemble_fee,
@@ -31,6 +33,7 @@ export function getUpgradeRows(state: VehicleLicenseState): UpgradeExpenseRow[] 
     id: `upgrade:${row.id}`,
     date: row.upgrade_date,
     title: row.title || "Upgrade / parts change",
+    category_id: row.category_id,
     part_price: row.part_price,
     part_assemble_fee: row.part_assemble_fee,
     amount: row.part_price + row.part_assemble_fee,

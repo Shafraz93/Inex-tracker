@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Menu } from "lucide-react";
+import { Menu, RefreshCw } from "lucide-react";
 import * as React from "react";
 
 import { MAIN_NAV_ITEMS } from "@/config/main-nav";
@@ -25,6 +25,7 @@ export function AppHeader() {
   const router = useRouter();
   const [menuOpen, setMenuOpen] = React.useState(false);
   const [signingOut, setSigningOut] = React.useState(false);
+  const [syncing, setSyncing] = React.useState(false);
 
   async function handleSignOut() {
     setSigningOut(true);
@@ -37,6 +38,12 @@ export function AppHeader() {
     } finally {
       setSigningOut(false);
     }
+  }
+
+  function handleSync() {
+    setSyncing(true);
+    window.dispatchEvent(new CustomEvent("inex-tracker:sync-request"));
+    window.setTimeout(() => setSyncing(false), 1200);
   }
 
   return (
@@ -59,6 +66,18 @@ export function AppHeader() {
         <div className="min-w-0 flex-1" aria-hidden />
 
         <div className="flex shrink-0 items-center gap-1">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="shrink-0"
+            aria-label="Sync data"
+            onClick={handleSync}
+            disabled={syncing}
+          >
+            <RefreshCw className={cn("size-4", syncing ? "animate-spin" : "")} />
+            Sync
+          </Button>
           <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
             <SheetTrigger
               render={

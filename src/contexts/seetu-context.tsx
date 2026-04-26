@@ -179,6 +179,30 @@ export function SeetuProvider({ children }: { children: React.ReactNode }) {
     return () => window.clearTimeout(timer);
   }, [pools, hydrated, userId, supabase]);
 
+  const fetchLatestFromCloud = React.useCallback(async () => {
+    if (!userId) return;
+    try {
+      const rows = normalizePools(await fetchSeetuPools(supabase, userId));
+      setPools(rows);
+      setSelectedPoolId((prev) => {
+        if (prev && rows.some((p) => p.id === prev)) return prev;
+        return rows[0]?.id ?? null;
+      });
+      lastSyncedRef.current = JSON.stringify(rows);
+      setError(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not sync Seetu from cloud.");
+    }
+  }, [supabase, userId]);
+
+  React.useEffect(() => {
+    function onSync() {
+      void fetchLatestFromCloud();
+    }
+    window.addEventListener("inex-tracker:sync-request", onSync);
+    return () => window.removeEventListener("inex-tracker:sync-request", onSync);
+  }, [fetchLatestFromCloud]);
+
   const selected =
     pools.find((p) => p.id === selectedPoolId) ?? null;
 

@@ -30,6 +30,7 @@ function stateMeaningful(s: VehicleLicenseState): boolean {
     !!s.details.chassis_number ||
     !!s.details.year_made ||
     !!s.details.model ||
+    !!s.details.log_category_id ||
     s.service_logs.length > 0 ||
     s.upgrade_logs.length > 0 ||
     s.fuel_logs.length > 0
@@ -130,6 +131,25 @@ export function VehicleLicenseProvider({
 
     return () => window.clearTimeout(timer);
   }, [state, hydrated, userId, supabase]);
+
+  const fetchLatestFromCloud = React.useCallback(async () => {
+    if (!userId) return;
+    try {
+      const fresh = await fetchVehicleLicenseState(supabase, userId);
+      lastSyncedRef.current = JSON.stringify(fresh);
+      setState(fresh);
+    } catch (e) {
+      console.error("Could not sync vehicle logs from cloud.", e);
+    }
+  }, [supabase, userId]);
+
+  React.useEffect(() => {
+    function onSync() {
+      void fetchLatestFromCloud();
+    }
+    window.addEventListener("inex-tracker:sync-request", onSync);
+    return () => window.removeEventListener("inex-tracker:sync-request", onSync);
+  }, [fetchLatestFromCloud]);
 
   const value = React.useMemo(() => ({ state, setState, hydrated }), [state, hydrated]);
 

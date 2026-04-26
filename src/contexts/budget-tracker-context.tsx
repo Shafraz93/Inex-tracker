@@ -138,6 +138,28 @@ export function BudgetTrackerProvider({
     return () => window.clearTimeout(timer);
   }, [state, hydrated, userId, supabase]);
 
+  const fetchLatestFromCloud = React.useCallback(async () => {
+    if (!userId) return;
+    try {
+      const fresh = await fetchBudgetTrackerState(supabase, userId);
+      lastSyncedRef.current = JSON.stringify(fresh);
+      setState(fresh);
+      setError(null);
+    } catch (e) {
+      setError(
+        e instanceof Error ? e.message : "Could not sync budget data from cloud."
+      );
+    }
+  }, [supabase, userId]);
+
+  React.useEffect(() => {
+    function onSync() {
+      void fetchLatestFromCloud();
+    }
+    window.addEventListener("inex-tracker:sync-request", onSync);
+    return () => window.removeEventListener("inex-tracker:sync-request", onSync);
+  }, [fetchLatestFromCloud]);
+
   const value = React.useMemo(
     () => ({ state, setState, hydrated, error, setError }),
     [state, hydrated, error]

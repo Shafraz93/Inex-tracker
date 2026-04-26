@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Plus, Trash2 } from "lucide-react";
+import { Pencil, Plus, Trash2, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -14,6 +14,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useBudgetTracker } from "@/contexts/budget-tracker-context";
 import { useVehicleLicense } from "@/contexts/vehicle-license-context";
 import { formatMoney } from "@/lib/currency";
 import {
@@ -23,6 +24,9 @@ import {
   removeFuelLogLocal,
   removeServiceLogLocal,
   removeUpgradeLogLocal,
+  updateFuelLogLocal,
+  updateServiceLogLocal,
+  updateUpgradeLogLocal,
 } from "@/lib/vehicle-license/local-storage";
 import { getUpgradeRows } from "@/lib/vehicle-license/summary";
 
@@ -38,6 +42,7 @@ type VehicleTab = "service" | "upgrades" | "fuel";
 
 export function VehicleLicenseDashboard() {
   const { state, setState, hydrated } = useVehicleLicense();
+  const { state: budgetState } = useBudgetTracker();
   const [error, setError] = React.useState<string | null>(null);
   const [tab, setTab] = React.useState<VehicleTab>("service");
 
@@ -46,29 +51,106 @@ export function VehicleLicenseDashboard() {
   const [servicePartsTitle, setServicePartsTitle] = React.useState("");
   const [servicePartPrice, setServicePartPrice] = React.useState("");
   const [servicePartAssembleFee, setServicePartAssembleFee] = React.useState("");
+  const [editingServiceId, setEditingServiceId] = React.useState<string | null>(null);
 
   const [upgradeDate, setUpgradeDate] = React.useState(todayIso);
   const [upgradeTitle, setUpgradeTitle] = React.useState("");
   const [upgradePartPrice, setUpgradePartPrice] = React.useState("");
   const [upgradePartAssembleFee, setUpgradePartAssembleFee] = React.useState("");
+  const [editingUpgradeId, setEditingUpgradeId] = React.useState<string | null>(null);
 
   const [fuelDate, setFuelDate] = React.useState(todayIso);
   const [fuelLiters, setFuelLiters] = React.useState("");
   const [fuelAmount, setFuelAmount] = React.useState("");
+  const [editingFuelId, setEditingFuelId] = React.useState<string | null>(null);
+  const [isEditingDetails, setIsEditingDetails] = React.useState(false);
+  const [detailsDraft, setDetailsDraft] = React.useState(state.details);
+  const detailsView = isEditingDetails ? detailsDraft : state.details;
 
   const upgradeRows = React.useMemo(() => getUpgradeRows(state), [state]);
+  const expenseCategories = React.useMemo(
+    () => budgetState.categories.filter((c) => c.kind === "expense"),
+    [budgetState.categories]
+  );
+  const categoryNameById = React.useMemo(
+    () => new Map(expenseCategories.map((c) => [c.id, c.name])),
+    [expenseCategories]
+  );
+  const globalCategoryValue =
+    state.details.log_category_id && categoryNameById.has(state.details.log_category_id)
+      ? state.details.log_category_id
+      : "";
 
-  function setDetail<K extends keyof typeof state.details>(
+  function setDetailDraft<K extends keyof typeof state.details>(
     key: K,
     value: (typeof state.details)[K]
   ) {
+    setDetailsDraft((prev) => ({
+      ...prev,
+      [key]: value,
+    }));
+  }
+
+  function onSaveDetails() {
+    const nextCategoryId =
+      detailsDraft.log_category_id &&
+      categoryNameById.has(detailsDraft.log_category_id)
+        ? detailsDraft.log_category_id
+        : null;
+
+    if (expenseCategories.length > 0 && !nextCategoryId) {
+      setError("Select a global category for vehicle logs.");
+      return;
+    }
+
     setState((prev) => ({
       ...prev,
       details: {
-        ...prev.details,
-        [key]: value,
+        bike_number: detailsDraft.bike_number.trim(),
+        chassis_number: detailsDraft.chassis_number.trim(),
+        year_made: detailsDraft.year_made.trim(),
+        model: detailsDraft.model.trim(),
+        log_category_id: nextCategoryId,
       },
+      service_logs: prev.service_logs.map((row) => ({
+        ...row,
+        category_id: nextCategoryId,
+      })),
+      upgrade_logs: prev.upgrade_logs.map((row) => ({
+        ...row,
+        category_id: nextCategoryId,
+      })),
+      fuel_logs: prev.fuel_logs.map((row) => ({
+        ...row,
+        category_id: nextCategoryId,
+      })),
     }));
+    setError(null);
+    setIsEditingDetails(false);
+  }
+
+  function resetServiceForm() {
+    setEditingServiceId(null);
+    setServiceDate(todayIso());
+    setServiceCharge("");
+    setServicePartsTitle("");
+    setServicePartPrice("");
+    setServicePartAssembleFee("");
+  }
+
+  function resetUpgradeForm() {
+    setEditingUpgradeId(null);
+    setUpgradeDate(todayIso());
+    setUpgradeTitle("");
+    setUpgradePartPrice("");
+    setUpgradePartAssembleFee("");
+  }
+
+  function resetFuelForm() {
+    setEditingFuelId(null);
+    setFuelDate(todayIso());
+    setFuelLiters("");
+    setFuelAmount("");
   }
 
   function onAddService(e: React.FormEvent) {
@@ -95,19 +177,24 @@ export function VehicleLicenseDashboard() {
       setError("Enter a valid part assemble fee.");
       return;
     }
+    if (!globalCategoryValue) {
+      setError("Set a global vehicle category in Bike details first.");
+      return;
+    }
+    const payload = {
+      service_date: serviceDate,
+      category_id: globalCategoryValue,
+      service_charge: charge,
+      parts_title: servicePartsTitle,
+      part_price: partPrice,
+      part_assemble_fee: partAssembleFee,
+    };
     setState((prev) =>
-      addServiceLogLocal(prev, {
-        service_date: serviceDate,
-        service_charge: charge,
-        parts_title: servicePartsTitle,
-        part_price: partPrice,
-        part_assemble_fee: partAssembleFee,
-      })
+      editingServiceId
+        ? updateServiceLogLocal(prev, editingServiceId, payload)
+        : addServiceLogLocal(prev, payload)
     );
-    setServiceCharge("");
-    setServicePartsTitle("");
-    setServicePartPrice("");
-    setServicePartAssembleFee("");
+    resetServiceForm();
   }
 
   function onAddUpgrade(e: React.FormEvent) {
@@ -133,17 +220,23 @@ export function VehicleLicenseDashboard() {
       setError("Enter a valid part assemble fee.");
       return;
     }
+    if (!globalCategoryValue) {
+      setError("Set a global vehicle category in Bike details first.");
+      return;
+    }
+    const payload = {
+      upgrade_date: upgradeDate,
+      category_id: globalCategoryValue,
+      title: upgradeTitle,
+      part_price: partPrice,
+      part_assemble_fee: partAssembleFee,
+    };
     setState((prev) =>
-      addUpgradeLogLocal(prev, {
-        upgrade_date: upgradeDate,
-        title: upgradeTitle,
-        part_price: partPrice,
-        part_assemble_fee: partAssembleFee,
-      })
+      editingUpgradeId
+        ? updateUpgradeLogLocal(prev, editingUpgradeId, payload)
+        : addUpgradeLogLocal(prev, payload)
     );
-    setUpgradeTitle("");
-    setUpgradePartPrice("");
-    setUpgradePartAssembleFee("");
+    resetUpgradeForm();
   }
 
   function onAddFuel(e: React.FormEvent) {
@@ -163,15 +256,22 @@ export function VehicleLicenseDashboard() {
       setError("Enter a valid fuel amount.");
       return;
     }
+    if (!globalCategoryValue) {
+      setError("Set a global vehicle category in Bike details first.");
+      return;
+    }
+    const payload = {
+      filled_on: fuelDate,
+      category_id: globalCategoryValue,
+      liters,
+      amount,
+    };
     setState((prev) =>
-      addFuelLogLocal(prev, {
-        filled_on: fuelDate,
-        liters,
-        amount,
-      })
+      editingFuelId
+        ? updateFuelLogLocal(prev, editingFuelId, payload)
+        : addFuelLogLocal(prev, payload)
     );
-    setFuelLiters("");
-    setFuelAmount("");
+    resetFuelForm();
   }
 
   if (!hydrated) {
@@ -195,21 +295,63 @@ export function VehicleLicenseDashboard() {
           {error}
         </p>
       ) : null}
+      {expenseCategories.length === 0 ? (
+        <p className="rounded-lg border border-border bg-muted/40 px-3 py-2 text-sm">
+          Add at least one `Expense` category in the Categories page to create
+          vehicle logs.
+        </p>
+      ) : null}
 
       <Card>
         <CardHeader>
-          <CardTitle>Bike details</CardTitle>
-          <CardDescription>
-            Save your vehicle information once and update when needed.
-          </CardDescription>
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <CardTitle>Bike details</CardTitle>
+              <CardDescription>
+                Save your vehicle information and set one global category for all
+                vehicle logs.
+              </CardDescription>
+            </div>
+            {isEditingDetails ? (
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setDetailsDraft(state.details);
+                    setIsEditingDetails(false);
+                  }}
+                >
+                  <X className="size-4" />
+                  Cancel
+                </Button>
+                <Button type="button" onClick={onSaveDetails}>
+                  Save
+                </Button>
+              </div>
+            ) : (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setDetailsDraft(state.details);
+                  setIsEditingDetails(true);
+                }}
+              >
+                <Pencil className="size-4" />
+                Edit
+              </Button>
+            )}
+          </div>
         </CardHeader>
         <CardContent className="grid gap-4 sm:grid-cols-2">
           <div className="grid gap-2">
             <Label htmlFor="bike-number">Bike number</Label>
             <Input
               id="bike-number"
-              value={state.details.bike_number}
-              onChange={(e) => setDetail("bike_number", e.target.value)}
+              value={detailsView.bike_number}
+              onChange={(e) => setDetailDraft("bike_number", e.target.value)}
+              readOnly={!isEditingDetails}
               placeholder="ABC-1234"
             />
           </div>
@@ -217,8 +359,9 @@ export function VehicleLicenseDashboard() {
             <Label htmlFor="bike-chassis">Chassis number</Label>
             <Input
               id="bike-chassis"
-              value={state.details.chassis_number}
-              onChange={(e) => setDetail("chassis_number", e.target.value)}
+              value={detailsView.chassis_number}
+              onChange={(e) => setDetailDraft("chassis_number", e.target.value)}
+              readOnly={!isEditingDetails}
               placeholder="Chassis no."
             />
           </div>
@@ -226,8 +369,9 @@ export function VehicleLicenseDashboard() {
             <Label htmlFor="bike-year">Year made</Label>
             <Input
               id="bike-year"
-              value={state.details.year_made}
-              onChange={(e) => setDetail("year_made", e.target.value)}
+              value={detailsView.year_made}
+              onChange={(e) => setDetailDraft("year_made", e.target.value)}
+              readOnly={!isEditingDetails}
               placeholder="2024"
             />
           </div>
@@ -235,10 +379,33 @@ export function VehicleLicenseDashboard() {
             <Label htmlFor="bike-model">Model</Label>
             <Input
               id="bike-model"
-              value={state.details.model}
-              onChange={(e) => setDetail("model", e.target.value)}
+              value={detailsView.model}
+              onChange={(e) => setDetailDraft("model", e.target.value)}
+              readOnly={!isEditingDetails}
               placeholder="Model"
             />
+          </div>
+          <div className="grid gap-2 sm:col-span-2">
+            <Label htmlFor="vehicle-global-category">Global log category</Label>
+            <select
+              id="vehicle-global-category"
+              className="h-8 rounded-lg border border-input bg-background px-2 text-sm disabled:opacity-70"
+              value={detailsView.log_category_id ?? ""}
+              onChange={(e) =>
+                setDetailDraft(
+                  "log_category_id",
+                  e.target.value ? e.target.value : null
+                )
+              }
+              disabled={!isEditingDetails}
+            >
+              <option value="">Select category</option>
+              {expenseCategories.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
           </div>
         </CardContent>
       </Card>
@@ -320,8 +487,14 @@ export function VehicleLicenseDashboard() {
                 </div>
                 <Button type="submit">
                   <Plus className="size-4" />
-                  Add service
+                  {editingServiceId ? "Update service" : "Add service"}
                 </Button>
+                {editingServiceId ? (
+                  <Button type="button" variant="outline" onClick={resetServiceForm}>
+                    <X className="size-4" />
+                    Cancel
+                  </Button>
+                ) : null}
               </form>
             </CardContent>
           </Card>
@@ -348,7 +521,7 @@ export function VehicleLicenseDashboard() {
                   <th className="text-muted-foreground px-3 py-2.5 text-xs font-medium tracking-wide uppercase">
                     Total
                   </th>
-                  <th className="text-muted-foreground w-20 px-3 py-2.5 text-xs font-medium tracking-wide uppercase">
+                  <th className="text-muted-foreground w-28 px-3 py-2.5 text-xs font-medium tracking-wide uppercase">
                     Action
                   </th>
                 </tr>
@@ -386,17 +559,35 @@ export function VehicleLicenseDashboard() {
                         )}
                       </td>
                       <td className="px-3 py-2">
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon-xs"
-                          aria-label="Delete service entry"
-                          onClick={() =>
-                            setState((prev) => removeServiceLogLocal(prev, row.id))
-                          }
-                        >
-                          <Trash2 className="size-4" />
-                        </Button>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon-xs"
+                            aria-label="Edit service entry"
+                            onClick={() => {
+                              setEditingServiceId(row.id);
+                              setServiceDate(row.service_date);
+                              setServiceCharge(String(row.service_charge));
+                              setServicePartsTitle(row.parts_title);
+                              setServicePartPrice(String(row.part_price));
+                              setServicePartAssembleFee(String(row.part_assemble_fee));
+                            }}
+                          >
+                            <Pencil className="size-4" />
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon-xs"
+                            aria-label="Delete service entry"
+                            onClick={() =>
+                              setState((prev) => removeServiceLogLocal(prev, row.id))
+                            }
+                          >
+                            <Trash2 className="size-4" />
+                          </Button>
+                        </div>
                       </td>
                     </tr>
                   ))
@@ -468,8 +659,14 @@ export function VehicleLicenseDashboard() {
                 </div>
                 <Button type="submit">
                   <Plus className="size-4" />
-                  Add upgrade
+                  {editingUpgradeId ? "Update upgrade" : "Add upgrade"}
                 </Button>
+                {editingUpgradeId ? (
+                  <Button type="button" variant="outline" onClick={resetUpgradeForm}>
+                    <X className="size-4" />
+                    Cancel
+                  </Button>
+                ) : null}
               </form>
             </CardContent>
           </Card>
@@ -496,7 +693,7 @@ export function VehicleLicenseDashboard() {
                   <th className="text-muted-foreground px-3 py-2.5 text-xs font-medium tracking-wide uppercase">
                     Source
                   </th>
-                  <th className="text-muted-foreground w-20 px-3 py-2.5 text-xs font-medium tracking-wide uppercase">
+                  <th className="text-muted-foreground w-28 px-3 py-2.5 text-xs font-medium tracking-wide uppercase">
                     Action
                   </th>
                 </tr>
@@ -531,22 +728,44 @@ export function VehicleLicenseDashboard() {
                       </td>
                       <td className="px-3 py-2">
                         {row.source === "upgrade" ? (
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon-xs"
-                            aria-label="Delete upgrade entry"
-                            onClick={() =>
-                              setState((prev) =>
-                                removeUpgradeLogLocal(
-                                  prev,
-                                  row.id.replace("upgrade:", "")
+                          <div className="flex items-center gap-1">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon-xs"
+                              aria-label="Edit upgrade entry"
+                              onClick={() => {
+                                const id = row.id.replace("upgrade:", "");
+                                const found = state.upgrade_logs.find((r) => r.id === id);
+                                if (!found) return;
+                                setEditingUpgradeId(id);
+                                setUpgradeDate(found.upgrade_date);
+                                setUpgradeTitle(found.title);
+                                setUpgradePartPrice(String(found.part_price));
+                                setUpgradePartAssembleFee(
+                                  String(found.part_assemble_fee)
+                                );
+                              }}
+                            >
+                              <Pencil className="size-4" />
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon-xs"
+                              aria-label="Delete upgrade entry"
+                              onClick={() =>
+                                setState((prev) =>
+                                  removeUpgradeLogLocal(
+                                    prev,
+                                    row.id.replace("upgrade:", "")
+                                  )
                                 )
-                              )
-                            }
-                          >
-                            <Trash2 className="size-4" />
-                          </Button>
+                              }
+                            >
+                              <Trash2 className="size-4" />
+                            </Button>
+                          </div>
                         ) : (
                           <span className="text-muted-foreground text-xs">-</span>
                         )}
@@ -609,8 +828,14 @@ export function VehicleLicenseDashboard() {
                 </div>
                 <Button type="submit">
                   <Plus className="size-4" />
-                  Add fuel
+                  {editingFuelId ? "Update fuel" : "Add fuel"}
                 </Button>
+                {editingFuelId ? (
+                  <Button type="button" variant="outline" onClick={resetFuelForm}>
+                    <X className="size-4" />
+                    Cancel
+                  </Button>
+                ) : null}
               </form>
             </CardContent>
           </Card>
@@ -628,7 +853,7 @@ export function VehicleLicenseDashboard() {
                   <th className="text-muted-foreground px-3 py-2.5 text-xs font-medium tracking-wide uppercase">
                     Amount
                   </th>
-                  <th className="text-muted-foreground w-20 px-3 py-2.5 text-xs font-medium tracking-wide uppercase">
+                  <th className="text-muted-foreground w-28 px-3 py-2.5 text-xs font-medium tracking-wide uppercase">
                     Action
                   </th>
                 </tr>
@@ -643,17 +868,33 @@ export function VehicleLicenseDashboard() {
                         {formatMoney(row.amount)}
                       </td>
                       <td className="px-3 py-2">
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon-xs"
-                          aria-label="Delete fuel entry"
-                          onClick={() =>
-                            setState((prev) => removeFuelLogLocal(prev, row.id))
-                          }
-                        >
-                          <Trash2 className="size-4" />
-                        </Button>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon-xs"
+                            aria-label="Edit fuel entry"
+                            onClick={() => {
+                              setEditingFuelId(row.id);
+                              setFuelDate(row.filled_on);
+                              setFuelLiters(String(row.liters));
+                              setFuelAmount(String(row.amount));
+                            }}
+                          >
+                            <Pencil className="size-4" />
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon-xs"
+                            aria-label="Delete fuel entry"
+                            onClick={() =>
+                              setState((prev) => removeFuelLogLocal(prev, row.id))
+                            }
+                          >
+                            <Trash2 className="size-4" />
+                          </Button>
+                        </div>
                       </td>
                     </tr>
                   ))

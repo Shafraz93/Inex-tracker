@@ -5,6 +5,7 @@ export const MAIN_NAV_ITEMS = [
   { href: "/budget", label: "Budget" },
   { href: "/income", label: "Income" },
   { href: "/expenses", label: "Expenses" },
+  { href: "/credits", label: "Credits" },
   { href: "/salary-advance", label: "Salary advance" },
   { href: "/categories", label: "Categories" },
   { href: "/seetu/pools", label: "Seetu (rotating savings)" },
