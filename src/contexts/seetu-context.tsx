@@ -11,6 +11,7 @@ import {
   normalizePools,
   readSeetuPoolsFromLocal,
   SEETU_LOCAL_STORAGE_KEY,
+  writeSeetuPoolsToLocal,
 } from "@/lib/seetu/local-storage";
 import {
   fetchSeetuPools,
@@ -104,9 +105,10 @@ export function SeetuProvider({ children }: { children: React.ReactNode }) {
         user = data.user;
       } catch (e) {
         if (cancelled) return;
+        const local = normalizePools(readSeetuPoolsFromLocal());
         setUserId(null);
-        setPools([]);
-        setSelectedPoolId(null);
+        setPools(local);
+        setSelectedPoolId(local[0]?.id ?? null);
         setError(e instanceof Error ? e.message : "Could not read auth user for Seetu.");
         setHydrated(true);
         return;
@@ -114,9 +116,10 @@ export function SeetuProvider({ children }: { children: React.ReactNode }) {
       if (cancelled) return;
 
       if (!user) {
+        const local = normalizePools(readSeetuPoolsFromLocal());
         setUserId(null);
-        setPools([]);
-        setSelectedPoolId(null);
+        setPools(local);
+        setSelectedPoolId(local[0]?.id ?? null);
         setHydrated(true);
         return;
       }
@@ -154,6 +157,12 @@ export function SeetuProvider({ children }: { children: React.ReactNode }) {
         setHydrated(true);
       } catch (e) {
         if (!cancelled) {
+          const local = normalizePools(readSeetuPoolsFromLocal());
+          setPools(local);
+          setSelectedPoolId((prev) => {
+            if (prev && local.some((p) => p.id === prev)) return prev;
+            return local[0]?.id ?? null;
+          });
           setError(
             e instanceof Error ? e.message : "Could not load Seetu from cloud."
           );
@@ -166,6 +175,15 @@ export function SeetuProvider({ children }: { children: React.ReactNode }) {
       cancelled = true;
     };
   }, [supabase]);
+
+  React.useEffect(() => {
+    if (!hydrated) return;
+    try {
+      writeSeetuPoolsToLocal(pools);
+    } catch (e) {
+      console.error("Could not save Seetu in browser.", e);
+    }
+  }, [pools, hydrated]);
 
   React.useEffect(() => {
     if (!hydrated || !userId) return;
@@ -191,9 +209,21 @@ export function SeetuProvider({ children }: { children: React.ReactNode }) {
   }, [pools, hydrated, userId, supabase]);
 
   const fetchLatestFromCloud = React.useCallback(async () => {
-    if (!userId) return;
+    let uid = userId;
+    if (!uid) {
+      try {
+        const { data, error } = await supabase.auth.getUser();
+        if (error) throw new Error(error.message);
+        uid = data.user?.id ?? null;
+        setUserId(uid);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Could not read auth user for Seetu.");
+        return;
+      }
+    }
+    if (!uid) return;
     try {
-      const rows = normalizePools(await fetchSeetuPools(supabase, userId));
+      const rows = normalizePools(await fetchSeetuPools(supabase, uid));
       setPools(rows);
       setSelectedPoolId((prev) => {
         if (prev && rows.some((p) => p.id === prev)) return prev;
@@ -220,10 +250,6 @@ export function SeetuProvider({ children }: { children: React.ReactNode }) {
   const createPool = React.useCallback((e: React.FormEvent) => {
     e.preventDefault();
     if (!newTitle.trim()) return;
-    if (!userId) {
-      setError("Sign in to create pools.");
-      return;
-    }
     const amt = parseFloat(newContribution.replace(/,/g, "")) || 20000;
     const id = newEntityId();
     setPools((prev) =>
@@ -242,7 +268,7 @@ export function SeetuProvider({ children }: { children: React.ReactNode }) {
     );
     setSelectedPoolId(id);
     setNewTitle("");
-  }, [newTitle, newContribution, newStartMonth, userId]);
+  }, [newTitle, newContribution, newStartMonth]);
 
   const deletePool = React.useCallback(
     async (poolId: string) => {
