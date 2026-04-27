@@ -19,6 +19,7 @@ import { formatMoney } from "@/lib/currency";
 import {
   addBudgetEntryLocal,
   addCategoryLocal,
+  copyBudgetMonthLocal,
   addExpenseEntryLocal,
   addIncomeEntryLocal,
   removeBudgetEntryLocal,
@@ -51,23 +52,31 @@ function monthIso(): string {
   return todayIso().slice(0, 7);
 }
 
+function addOneMonthYm(ym: string): string {
+  const [y, m] = ym.split("-").map(Number);
+  if (!Number.isFinite(y) || !Number.isFinite(m) || m < 1 || m > 12) return ym;
+  const d = new Date(y, m - 1, 1);
+  d.setMonth(d.getMonth() + 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+
 function monthLabel(ym: string): string {
   if (!/^\d{4}-\d{2}$/.test(ym)) return ym;
   const [y, m] = ym.split("-");
   const idx = Number(m) - 1;
   const names = [
-    "Jan",
-    "Feb",
-    "Mar",
-    "Apr",
+    "January",
+    "February",
+    "March",
+    "April",
     "May",
-    "Jun",
-    "Jul",
-    "Aug",
-    "Sep",
-    "Oct",
-    "Nov",
-    "Dec",
+    "June",
+    "July",
+    "August",
+    "September",
+    "October",
+    "November",
+    "December",
   ];
   return `${names[idx] ?? m} ${y}`;
 }
@@ -76,11 +85,15 @@ function asNumber(input: string): number {
   return Number(input.replace(/,/g, "").trim());
 }
 
+function LoadingBlock({ className }: { className: string }) {
+  return <div className={`animate-pulse rounded-md bg-muted ${className}`} />;
+}
+
 export function BudgetTrackerDashboard({ view }: { view: BudgetTrackerView }) {
   const { state, setState, hydrated, error, setError } = useBudgetTracker();
   const { state: vehicleState } = useVehicleLicense();
 
-  const [summaryMonth, setSummaryMonth] = React.useState(monthIso);
+  const [selectedMonth, setSelectedMonth] = React.useState(monthIso);
 
   const [categoryName, setCategoryName] = React.useState("");
   const [categoryKind, setCategoryKind] = React.useState<BudgetCategoryKind>("expense");
@@ -102,11 +115,9 @@ export function BudgetTrackerDashboard({ view }: { view: BudgetTrackerView }) {
   const [expenseNote, setExpenseNote] = React.useState("");
   const [editingExpenseId, setEditingExpenseId] = React.useState<string | null>(null);
 
-  const [budgetMonth, setBudgetMonth] = React.useState(monthIso);
   const [budgetTitle, setBudgetTitle] = React.useState("");
   const [budgetAmount, setBudgetAmount] = React.useState("");
   const [budgetCategoryId, setBudgetCategoryId] = React.useState("");
-  const [budgetNote, setBudgetNote] = React.useState("");
   const [editingBudgetId, setEditingBudgetId] = React.useState<string | null>(null);
 
   const incomeCategories = React.useMemo(
@@ -195,26 +206,30 @@ export function BudgetTrackerDashboard({ view }: { view: BudgetTrackerView }) {
   const monthlyIncome = React.useMemo(
     () =>
       state.income_entries.reduce((sum, row) => {
-        if (!row.earned_on.startsWith(summaryMonth)) return sum;
+        if (!row.earned_on.startsWith(selectedMonth)) return sum;
         return sum + row.amount;
       }, 0),
-    [state.income_entries, summaryMonth]
+    [state.income_entries, selectedMonth]
   );
   const monthlyExpense = React.useMemo(
     () =>
       allExpenseRows.reduce((sum, row) => {
-        if (!row.spent_on.startsWith(summaryMonth)) return sum;
+        if (!row.spent_on.startsWith(selectedMonth)) return sum;
         return sum + row.amount;
       }, 0),
-    [allExpenseRows, summaryMonth]
+    [allExpenseRows, selectedMonth]
   );
   const monthlyBudget = React.useMemo(
     () =>
       state.budget_entries.reduce((sum, row) => {
-        if (row.budget_month !== summaryMonth) return sum;
+        if (row.budget_month !== selectedMonth) return sum;
         return sum + row.limit_amount;
       }, 0),
-    [state.budget_entries, summaryMonth]
+    [state.budget_entries, selectedMonth]
+  );
+  const budgetRowsForMonth = React.useMemo(
+    () => state.budget_entries.filter((row) => row.budget_month === selectedMonth),
+    [state.budget_entries, selectedMonth]
   );
 
   const categoryUsage = React.useMemo(() => {
@@ -263,11 +278,9 @@ export function BudgetTrackerDashboard({ view }: { view: BudgetTrackerView }) {
   }
 
   function resetBudgetForm() {
-    setBudgetMonth(monthIso());
     setBudgetTitle("");
     setBudgetAmount("");
     setBudgetCategoryId("");
-    setBudgetNote("");
     setEditingBudgetId(null);
   }
 
@@ -281,9 +294,9 @@ export function BudgetTrackerDashboard({ view }: { view: BudgetTrackerView }) {
     setState((prev) =>
       editingCategoryId
         ? updateCategoryLocal(prev, editingCategoryId, {
-            name: categoryName,
-            kind: categoryKind,
-          })
+          name: categoryName,
+          kind: categoryKind,
+        })
         : addCategoryLocal(prev, { name: categoryName, kind: categoryKind })
     );
     resetCategoryForm();
@@ -359,7 +372,7 @@ export function BudgetTrackerDashboard({ view }: { view: BudgetTrackerView }) {
     e.preventDefault();
     setError(null);
     const amount = asNumber(budgetAmount);
-    if (!budgetMonth.trim()) {
+    if (!selectedMonth.trim()) {
       setError("Select budget month.");
       return;
     }
@@ -369,11 +382,11 @@ export function BudgetTrackerDashboard({ view }: { view: BudgetTrackerView }) {
     }
 
     const payload = {
-      budget_month: budgetMonth,
+      budget_month: selectedMonth,
       title: budgetTitle.trim() || "Budget limit",
       limit_amount: amount,
       category_id: budgetCategoryId || null,
-      note: budgetNote || null,
+      note: null,
     };
 
     setState((prev) =>
@@ -384,8 +397,107 @@ export function BudgetTrackerDashboard({ view }: { view: BudgetTrackerView }) {
     resetBudgetForm();
   }
 
+  function onCopyCurrentMonthBudgetToNextMonth() {
+    setError(null);
+    const fromMonth = selectedMonth;
+    const toMonth = addOneMonthYm(fromMonth);
+    const hasCurrentMonthBudget = state.budget_entries.some(
+      (row) => row.budget_month === fromMonth
+    );
+
+    if (!hasCurrentMonthBudget) {
+      setError(`No budget entries found for ${monthLabel(fromMonth)}.`);
+      return;
+    }
+
+    setState((prev) => copyBudgetMonthLocal(prev, fromMonth, toMonth));
+    setSelectedMonth(toMonth);
+  }
+
   if (!hydrated) {
-    return <p className="text-muted-foreground text-sm">Loading...</p>;
+    return (
+      <div className="flex flex-col gap-6">
+        <header className="max-w-2xl space-y-2">
+          <LoadingBlock className="h-8 w-44" />
+          <LoadingBlock className="h-4 w-full max-w-xl" />
+        </header>
+
+        <Card>
+          <CardHeader>
+            <LoadingBlock className="h-6 w-32" />
+            <LoadingBlock className="h-4 w-72" />
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <LoadingBlock className="h-8 w-52" />
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <LoadingBlock className="h-20 w-full" />
+              <LoadingBlock className="h-20 w-full" />
+              <LoadingBlock className="h-20 w-full" />
+              <LoadingBlock className="h-20 w-full" />
+            </div>
+          </CardContent>
+        </Card>
+
+        {view === "budget" ? (
+          <>
+            <Card>
+              <CardHeader>
+                <LoadingBlock className="h-6 w-28" />
+              </CardHeader>
+              <CardContent>
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                  <LoadingBlock className="h-8 w-full" />
+                  <LoadingBlock className="h-8 w-full" />
+                  <LoadingBlock className="h-8 w-full" />
+                  <LoadingBlock className="h-8 w-full" />
+                </div>
+              </CardContent>
+            </Card>
+
+            <div className="overflow-x-auto rounded-lg border border-border">
+              <table className="w-full min-w-lg text-sm">
+                <thead>
+                  <tr className="bg-muted/40 border-b border-border text-left">
+                    <th className="px-3 py-2.5"><LoadingBlock className="h-3 w-16" /></th>
+                    <th className="px-3 py-2.5"><LoadingBlock className="h-3 w-16" /></th>
+                    <th className="px-3 py-2.5"><LoadingBlock className="h-3 w-16" /></th>
+                    <th className="px-3 py-2.5"><LoadingBlock className="h-3 w-16" /></th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  <tr>
+                    <td className="px-3 py-3"><LoadingBlock className="h-4 w-40" /></td>
+                    <td className="px-3 py-3"><LoadingBlock className="h-4 w-28" /></td>
+                    <td className="px-3 py-3"><LoadingBlock className="h-4 w-24" /></td>
+                    <td className="px-3 py-3"><LoadingBlock className="h-4 w-16" /></td>
+                  </tr>
+                  <tr>
+                    <td className="px-3 py-3"><LoadingBlock className="h-4 w-44" /></td>
+                    <td className="px-3 py-3"><LoadingBlock className="h-4 w-32" /></td>
+                    <td className="px-3 py-3"><LoadingBlock className="h-4 w-20" /></td>
+                    <td className="px-3 py-3"><LoadingBlock className="h-4 w-16" /></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </>
+        ) : (
+          <Card>
+            <CardHeader>
+              <LoadingBlock className="h-6 w-32" />
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                <LoadingBlock className="h-8 w-full" />
+                <LoadingBlock className="h-8 w-full" />
+                <LoadingBlock className="h-8 w-full" />
+                <LoadingBlock className="h-8 w-full" />
+              </div>
+            </CardContent>
+          </Card>
+        )}
+      </div>
+    );
   }
 
   return (
@@ -401,8 +513,7 @@ export function BudgetTrackerDashboard({ view }: { view: BudgetTrackerView }) {
                 : "Categories"}
         </h1>
         <p className="text-muted-foreground text-sm leading-relaxed">
-          Customizable tracker with edit and delete for every entry. Data syncs to
-          cloud and stays shared across Budget, Income, Expenses, and Categories.
+          Budget management is the process of planning and controlling income and expenses to use money wisely and avoid overspending.
         </p>
       </header>
 
@@ -421,12 +532,12 @@ export function BudgetTrackerDashboard({ view }: { view: BudgetTrackerView }) {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid gap-2 sm:w-52">
-            <Label htmlFor="summary-month">Month</Label>
+            <Label htmlFor="summary-month">Month filter</Label>
             <Input
               id="summary-month"
               type="month"
-              value={summaryMonth}
-              onChange={(e) => setSummaryMonth(e.target.value)}
+              value={selectedMonth}
+              onChange={(e) => setSelectedMonth(e.target.value)}
             />
           </div>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -444,7 +555,7 @@ export function BudgetTrackerDashboard({ view }: { view: BudgetTrackerView }) {
             </div>
             <div className="rounded-lg border border-border p-3">
               <p className="text-muted-foreground text-xs">
-                Budget left ({monthLabel(summaryMonth)})
+                Budget left ({monthLabel(selectedMonth)})
               </p>
               <p className="font-semibold">{formatMoney(monthlyBudget - monthlyExpense)}</p>
             </div>
@@ -533,47 +644,48 @@ export function BudgetTrackerDashboard({ view }: { view: BudgetTrackerView }) {
                       amount: 0,
                     };
                     return (
-                    <tr key={row.id} className="bg-card">
-                      <td className="px-3 py-2.5">{row.name}</td>
-                      <td className="px-3 py-2.5">
-                        <span className="text-muted-foreground rounded bg-muted px-2 py-0.5 text-xs">
-                          {row.kind}
-                        </span>
-                      </td>
-                      <td className="px-3 py-2.5 tabular-nums">{usage.entries}</td>
-                      <td className="px-3 py-2.5 font-medium tabular-nums">
-                        {formatMoney(usage.amount)}
-                      </td>
-                      <td className="px-3 py-2">
-                        <div className="flex items-center gap-1">
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon-xs"
-                            aria-label="Edit category"
-                            onClick={() => {
-                              setCategoryName(row.name);
-                              setCategoryKind(row.kind);
-                              setEditingCategoryId(row.id);
-                            }}
-                          >
-                            <Pencil className="size-4" />
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon-xs"
-                            aria-label="Delete category"
-                            onClick={() =>
-                              setState((prev) => removeCategoryLocal(prev, row.id))
-                            }
-                          >
-                            <Trash2 className="size-4" />
-                          </Button>
-                        </div>
-                      </td>
-                    </tr>
-                  )})
+                      <tr key={row.id} className="bg-card">
+                        <td className="px-3 py-2.5">{row.name}</td>
+                        <td className="px-3 py-2.5">
+                          <span className="text-muted-foreground rounded bg-muted px-2 py-0.5 text-xs">
+                            {row.kind}
+                          </span>
+                        </td>
+                        <td className="px-3 py-2.5 tabular-nums">{usage.entries}</td>
+                        <td className="px-3 py-2.5 font-medium tabular-nums">
+                          {formatMoney(usage.amount)}
+                        </td>
+                        <td className="px-3 py-2">
+                          <div className="flex items-center gap-1">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon-xs"
+                              aria-label="Edit category"
+                              onClick={() => {
+                                setCategoryName(row.name);
+                                setCategoryKind(row.kind);
+                                setEditingCategoryId(row.id);
+                              }}
+                            >
+                              <Pencil className="size-4" />
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon-xs"
+                              aria-label="Delete category"
+                              onClick={() =>
+                                setState((prev) => removeCategoryLocal(prev, row.id))
+                              }
+                            >
+                              <Trash2 className="size-4" />
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  })
                 ) : (
                   <tr>
                     <td colSpan={5} className="text-muted-foreground px-3 py-6 text-center">
@@ -952,15 +1064,6 @@ export function BudgetTrackerDashboard({ view }: { view: BudgetTrackerView }) {
                 onSubmit={onSaveBudget}
                 className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-end"
               >
-                <div className="grid w-full gap-2 sm:w-40">
-                  <Label htmlFor="budget-month">Month</Label>
-                  <Input
-                    id="budget-month"
-                    type="month"
-                    value={budgetMonth}
-                    onChange={(e) => setBudgetMonth(e.target.value)}
-                  />
-                </div>
                 <div className="grid w-full gap-2 sm:w-64">
                   <Label htmlFor="budget-title">Title</Label>
                   <Input
@@ -996,15 +1099,6 @@ export function BudgetTrackerDashboard({ view }: { view: BudgetTrackerView }) {
                     ))}
                   </select>
                 </div>
-                <div className="grid w-full gap-2 sm:w-72">
-                  <Label htmlFor="budget-note">Note (optional)</Label>
-                  <Input
-                    id="budget-note"
-                    value={budgetNote}
-                    onChange={(e) => setBudgetNote(e.target.value)}
-                    placeholder="Keep this under control"
-                  />
-                </div>
                 <div className="flex gap-2">
                   <Button type="submit">
                     <Plus className="size-4" />
@@ -1021,13 +1115,16 @@ export function BudgetTrackerDashboard({ view }: { view: BudgetTrackerView }) {
             </CardContent>
           </Card>
 
+          <div className="space-y-2">
+            <h2 className="text-foreground text-base font-semibold">
+              Budget for {monthLabel(selectedMonth)}
+            </h2>
+          </div>
+
           <div className="overflow-x-auto rounded-lg border border-border">
             <table className="w-full min-w-lg text-sm">
               <thead>
                 <tr className="bg-muted/40 border-b border-border text-left">
-                  <th className="text-muted-foreground px-3 py-2.5 text-xs font-medium uppercase">
-                    Month
-                  </th>
                   <th className="text-muted-foreground px-3 py-2.5 text-xs font-medium uppercase">
                     Title
                   </th>
@@ -1037,19 +1134,15 @@ export function BudgetTrackerDashboard({ view }: { view: BudgetTrackerView }) {
                   <th className="text-muted-foreground px-3 py-2.5 text-xs font-medium uppercase">
                     Limit
                   </th>
-                  <th className="text-muted-foreground px-3 py-2.5 text-xs font-medium uppercase">
-                    Note
-                  </th>
                   <th className="text-muted-foreground w-28 px-3 py-2.5 text-xs font-medium uppercase">
                     Action
                   </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {state.budget_entries.length > 0 ? (
-                  state.budget_entries.map((row) => (
+                {budgetRowsForMonth.length > 0 ? (
+                  budgetRowsForMonth.map((row) => (
                     <tr key={row.id} className="bg-card">
-                      <td className="px-3 py-2.5 tabular-nums">{monthLabel(row.budget_month)}</td>
                       <td className="px-3 py-2.5">{row.title}</td>
                       <td className="px-3 py-2.5">
                         {row.category_id ? (
@@ -1061,9 +1154,6 @@ export function BudgetTrackerDashboard({ view }: { view: BudgetTrackerView }) {
                       <td className="px-3 py-2.5 font-medium tabular-nums">
                         {formatMoney(row.limit_amount)}
                       </td>
-                      <td className="px-3 py-2.5">
-                        {row.note || <span className="text-muted-foreground">-</span>}
-                      </td>
                       <td className="px-3 py-2">
                         <div className="flex items-center gap-1">
                           <Button
@@ -1073,11 +1163,9 @@ export function BudgetTrackerDashboard({ view }: { view: BudgetTrackerView }) {
                             aria-label="Edit budget entry"
                             onClick={() => {
                               setEditingBudgetId(row.id);
-                              setBudgetMonth(row.budget_month);
                               setBudgetTitle(row.title);
                               setBudgetAmount(String(row.limit_amount));
                               setBudgetCategoryId(row.category_id ?? "");
-                              setBudgetNote(row.note ?? "");
                             }}
                           >
                             <Pencil className="size-4" />
@@ -1099,7 +1187,7 @@ export function BudgetTrackerDashboard({ view }: { view: BudgetTrackerView }) {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={6} className="text-muted-foreground px-3 py-6 text-center">
+                    <td colSpan={4} className="text-muted-foreground px-3 py-6 text-center">
                       No budget entries yet.
                     </td>
                   </tr>
@@ -1107,6 +1195,24 @@ export function BudgetTrackerDashboard({ view }: { view: BudgetTrackerView }) {
               </tbody>
             </table>
           </div>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Copy to next month</CardTitle>
+              <CardDescription>
+                Copy the current month budget into next month.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-muted-foreground text-sm">
+                Copies {monthLabel(selectedMonth)} budgets to{" "}
+                {monthLabel(addOneMonthYm(selectedMonth))}.
+              </p>
+              <Button type="button" variant="outline" onClick={onCopyCurrentMonthBudgetToNextMonth}>
+                Copy Current Month Budget
+              </Button>
+            </CardContent>
+          </Card>
         </>
       ) : null}
     </div>

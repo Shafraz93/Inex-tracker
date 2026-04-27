@@ -386,3 +386,32 @@ export function removeBudgetEntryLocal(
     budget_entries: prev.budget_entries.filter((r) => r.id !== entryId),
   });
 }
+
+export function copyBudgetMonthLocal(
+  prev: BudgetTrackerState,
+  fromMonth: string,
+  toMonth: string
+): BudgetTrackerState {
+  const from = fromMonth.slice(0, 7);
+  const to = toMonth.slice(0, 7);
+  if (!from || !to || from === to) return normalizeBudgetTrackerState(prev);
+
+  const source = prev.budget_entries.filter((r) => r.budget_month === from);
+  if (source.length === 0) return normalizeBudgetTrackerState(prev);
+
+  const nowIso = new Date().toISOString();
+  const copied = source.map((r) => ({
+    ...r,
+    id: newEntityId(),
+    budget_month: to,
+    logged_at: nowIso,
+  }));
+
+  return normalizeBudgetTrackerState({
+    ...prev,
+    budget_entries: [
+      ...copied,
+      ...prev.budget_entries.filter((r) => r.budget_month !== to),
+    ],
+  });
+}
