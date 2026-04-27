@@ -20,12 +20,12 @@ export default async function MainLayout({
   }
 
   return (
-    <div className="flex min-h-full flex-1 flex-col">
-      <AppHeader />
-      <div className="pb-20 md:pb-0">
-        <AppProviders>{children}</AppProviders>
+    <AppProviders>
+      <div className="flex min-h-full flex-1 flex-col">
+        <AppHeader />
+        <div className="pb-20 md:pb-0">{children}</div>
+        <MobileFooterNav />
       </div>
-      <MobileFooterNav />
-    </div>
+    </AppProviders>
   );
 }

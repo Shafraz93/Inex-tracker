@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { ArrowDown, ArrowUp } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -15,12 +16,59 @@ import { useAppSettings } from "@/contexts/app-settings-context";
 import { useBudgetTracker } from "@/contexts/budget-tracker-context";
 import { useCredits } from "@/contexts/credits-context";
 import { useVehicleLicense } from "@/contexts/vehicle-license-context";
+import type { AppFeatureKey, HomeCardKey } from "@/lib/app-settings/local-storage";
 import { updateCreditsGlobalCategoryLocal } from "@/lib/credits/local-storage";
 
 function normalizeCategoryId(value: string): string | null {
   const v = value.trim();
   return v.length > 0 ? v : null;
 }
+
+const HOME_CARD_META: Record<
+  HomeCardKey,
+  { title: string; description: string }
+> = {
+  vehicle: {
+    title: "Vehicle card",
+    description: "Bike spend summary card.",
+  },
+  seetu: {
+    title: "Seetu card",
+    description: "Seetu summary card.",
+  },
+  salary_advance: {
+    title: "Salary advance card",
+    description: "Salary advance summary card.",
+  },
+};
+
+const OPTIONAL_FEATURE_META: Record<
+  AppFeatureKey,
+  { title: string; description: string }
+> = {
+  vehicle_logs: {
+    title: "Vehicle logs",
+    description: "Bike service, upgrade, and fuel logs.",
+  },
+  credits: {
+    title: "Credits",
+    description: "Borrowed/settled credit tracking.",
+  },
+  salary_advance: {
+    title: "Salary advance",
+    description: "Advance and repayment tracking.",
+  },
+  seetu: {
+    title: "Seetu",
+    description: "Rotating savings pools and payouts.",
+  },
+};
+
+const HOME_CARD_FEATURE_MAP: Record<HomeCardKey, AppFeatureKey> = {
+  vehicle: "vehicle_logs",
+  seetu: "seetu",
+  salary_advance: "salary_advance",
+};
 
 export default function SettingsPage() {
   const {
@@ -39,9 +87,27 @@ export default function SettingsPage() {
     useCredits();
   const [saveMessage, setSaveMessage] = React.useState<string | null>(null);
 
+  function moveHomeCard(card: HomeCardKey, direction: -1 | 1) {
+    setSettings((prev) => {
+      const order = [...prev.home_card_order];
+      const from = order.indexOf(card);
+      if (from < 0) return prev;
+      const to = from + direction;
+      if (to < 0 || to >= order.length) return prev;
+      [order[from], order[to]] = [order[to], order[from]];
+      return {
+        ...prev,
+        home_card_order: order,
+      };
+    });
+  }
+
   const expenseCategories = React.useMemo(
     () => budgetState.categories.filter((c) => c.kind === "expense"),
     [budgetState.categories]
+  );
+  const enabledHomeCards = settings.home_card_order.filter(
+    (cardKey) => settings.app_features[HOME_CARD_FEATURE_MAP[cardKey]]
   );
 
   if (!hydrated || !budgetHydrated || !vehicleHydrated || !creditsHydrated) {
@@ -60,7 +126,7 @@ export default function SettingsPage() {
             Settings
           </h1>
           <p className="text-muted-foreground text-sm">
-            Configure salary month start, global categories, and home cards.
+            Configure salary month start, optional features, global categories, and home cards.
           </p>
           <div className="flex flex-wrap items-center gap-2 pt-2">
             <Button
@@ -120,6 +186,47 @@ export default function SettingsPage() {
                 </option>
               ))}
             </select>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Optional features</CardTitle>
+            <CardDescription>
+              Budget, Income, and Expenses are always enabled. Toggle other
+              features to show or hide them in the app.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-3">
+            {(Object.keys(OPTIONAL_FEATURE_META) as AppFeatureKey[]).map((featureKey) => (
+              <div
+                key={featureKey}
+                className="flex items-center justify-between gap-4 rounded-lg border border-border px-3 py-2"
+              >
+                <div>
+                  <p className="text-sm font-medium">{OPTIONAL_FEATURE_META[featureKey].title}</p>
+                  <p className="text-muted-foreground text-xs">
+                    {OPTIONAL_FEATURE_META[featureKey].description}
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant={settings.app_features[featureKey] ? "default" : "outline"}
+                  size="sm"
+                  onClick={() =>
+                    setSettings((prev) => ({
+                      ...prev,
+                      app_features: {
+                        ...prev.app_features,
+                        [featureKey]: !prev.app_features[featureKey],
+                      },
+                    }))
+                  }
+                >
+                  {settings.app_features[featureKey] ? "Enabled" : "Disabled"}
+                </Button>
+              </div>
+            ))}
           </CardContent>
         </Card>
 
@@ -203,80 +310,67 @@ export default function SettingsPage() {
           <CardHeader>
             <CardTitle>Home cards</CardTitle>
             <CardDescription>
-              Choose which summary cards are visible on the Home page.
+              Choose which summary cards are visible on the Home page and arrange their order.
             </CardDescription>
           </CardHeader>
           <CardContent className="grid gap-3">
-            <div className="flex items-center justify-between gap-4 rounded-lg border border-border px-3 py-2">
-              <div>
-                <p className="text-sm font-medium">Vehicle card</p>
-                <p className="text-muted-foreground text-xs">Bike spend summary card.</p>
-              </div>
-              <Button
-                type="button"
-                variant={settings.home_cards.vehicle ? "default" : "outline"}
-                size="sm"
-                onClick={() =>
-                  setSettings((prev) => ({
-                    ...prev,
-                    home_cards: {
-                      ...prev.home_cards,
-                      vehicle: !prev.home_cards.vehicle,
-                    },
-                  }))
-                }
+            {enabledHomeCards.length === 0 ? (
+              <p className="rounded-lg border border-border bg-muted/40 px-3 py-2 text-sm">
+                No Home cards available. Enable at least one related feature in
+                Optional features.
+              </p>
+            ) : null}
+            {enabledHomeCards.map((cardKey, idx) => (
+              <div
+                key={cardKey}
+                className="flex items-center justify-between gap-4 rounded-lg border border-border px-3 py-2"
               >
-                {settings.home_cards.vehicle ? "Enabled" : "Disabled"}
-              </Button>
-            </div>
-
-            <div className="flex items-center justify-between gap-4 rounded-lg border border-border px-3 py-2">
-              <div>
-                <p className="text-sm font-medium">Seetu card</p>
-                <p className="text-muted-foreground text-xs">Seetu summary card.</p>
+                <div>
+                  <p className="text-sm font-medium">{HOME_CARD_META[cardKey].title}</p>
+                  <p className="text-muted-foreground text-xs">
+                    {HOME_CARD_META[cardKey].description}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon-xs"
+                    aria-label={`Move ${HOME_CARD_META[cardKey].title} up`}
+                    disabled={idx === 0}
+                    onClick={() => moveHomeCard(cardKey, -1)}
+                  >
+                    <ArrowUp className="size-4" />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon-xs"
+                    aria-label={`Move ${HOME_CARD_META[cardKey].title} down`}
+                    disabled={idx === enabledHomeCards.length - 1}
+                    onClick={() => moveHomeCard(cardKey, 1)}
+                  >
+                    <ArrowDown className="size-4" />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={settings.home_cards[cardKey] ? "default" : "outline"}
+                    size="sm"
+                    onClick={() =>
+                      setSettings((prev) => ({
+                        ...prev,
+                        home_cards: {
+                          ...prev.home_cards,
+                          [cardKey]: !prev.home_cards[cardKey],
+                        },
+                      }))
+                    }
+                  >
+                    {settings.home_cards[cardKey] ? "Enabled" : "Disabled"}
+                  </Button>
+                </div>
               </div>
-              <Button
-                type="button"
-                variant={settings.home_cards.seetu ? "default" : "outline"}
-                size="sm"
-                onClick={() =>
-                  setSettings((prev) => ({
-                    ...prev,
-                    home_cards: {
-                      ...prev.home_cards,
-                      seetu: !prev.home_cards.seetu,
-                    },
-                  }))
-                }
-              >
-                {settings.home_cards.seetu ? "Enabled" : "Disabled"}
-              </Button>
-            </div>
-
-            <div className="flex items-center justify-between gap-4 rounded-lg border border-border px-3 py-2">
-              <div>
-                <p className="text-sm font-medium">Salary advance card</p>
-                <p className="text-muted-foreground text-xs">
-                  Salary advance summary card.
-                </p>
-              </div>
-              <Button
-                type="button"
-                variant={settings.home_cards.salary_advance ? "default" : "outline"}
-                size="sm"
-                onClick={() =>
-                  setSettings((prev) => ({
-                    ...prev,
-                    home_cards: {
-                      ...prev.home_cards,
-                      salary_advance: !prev.home_cards.salary_advance,
-                    },
-                  }))
-                }
-              >
-                {settings.home_cards.salary_advance ? "Enabled" : "Disabled"}
-              </Button>
-            </div>
+            ))}
           </CardContent>
         </Card>
       </div>

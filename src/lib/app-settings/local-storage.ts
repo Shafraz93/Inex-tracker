@@ -1,3 +1,10 @@
+export type HomeCardKey = "vehicle" | "seetu" | "salary_advance";
+export type AppFeatureKey =
+  | "vehicle_logs"
+  | "credits"
+  | "salary_advance"
+  | "seetu";
+
 export type HomeCardVisibility = {
   vehicle: boolean;
   seetu: boolean;
@@ -7,6 +14,8 @@ export type HomeCardVisibility = {
 export type AppSettingsState = {
   month_start_day: number; // 1..28
   home_cards: HomeCardVisibility;
+  home_card_order: HomeCardKey[];
+  app_features: Record<AppFeatureKey, boolean>;
 };
 
 export const APP_SETTINGS_LOCAL_STORAGE_KEY = "inex-tracker.app-settings.v1";
@@ -19,7 +28,36 @@ export function defaultAppSettings(): AppSettingsState {
       seetu: true,
       salary_advance: true,
     },
+    home_card_order: ["vehicle", "seetu", "salary_advance"],
+    app_features: {
+      vehicle_logs: true,
+      credits: true,
+      salary_advance: true,
+      seetu: true,
+    },
   };
+}
+
+function normalizeHomeCardOrder(raw: unknown): HomeCardKey[] {
+  const fallback: HomeCardKey[] = ["vehicle", "seetu", "salary_advance"];
+  if (!Array.isArray(raw)) return fallback;
+
+  const allowed = new Set<HomeCardKey>(fallback);
+  const seen = new Set<HomeCardKey>();
+  const next: HomeCardKey[] = [];
+
+  for (const item of raw) {
+    if (typeof item !== "string") continue;
+    const key = item as HomeCardKey;
+    if (!allowed.has(key) || seen.has(key)) continue;
+    next.push(key);
+    seen.add(key);
+  }
+
+  for (const key of fallback) {
+    if (!seen.has(key)) next.push(key);
+  }
+  return next;
 }
 
 export function normalizeAppSettings(data: unknown): AppSettingsState {
@@ -27,6 +65,7 @@ export function normalizeAppSettings(data: unknown): AppSettingsState {
   if (!data || typeof data !== "object") return d;
   const raw = data as Record<string, unknown>;
   const cards = (raw.home_cards ?? {}) as Record<string, unknown>;
+  const features = (raw.app_features ?? {}) as Record<string, unknown>;
   const day = Number(raw.month_start_day ?? d.month_start_day);
   return {
     month_start_day:
@@ -38,6 +77,20 @@ export function normalizeAppSettings(data: unknown): AppSettingsState {
         cards.salary_advance == null
           ? d.home_cards.salary_advance
           : Boolean(cards.salary_advance),
+    },
+    home_card_order: normalizeHomeCardOrder(raw.home_card_order),
+    app_features: {
+      vehicle_logs:
+        features.vehicle_logs == null
+          ? d.app_features.vehicle_logs
+          : Boolean(features.vehicle_logs),
+      credits:
+        features.credits == null ? d.app_features.credits : Boolean(features.credits),
+      salary_advance:
+        features.salary_advance == null
+          ? d.app_features.salary_advance
+          : Boolean(features.salary_advance),
+      seetu: features.seetu == null ? d.app_features.seetu : Boolean(features.seetu),
     },
   };
 }

@@ -32,7 +32,12 @@ function isMeaningful(s: AppSettingsState): boolean {
     s.month_start_day !== d.month_start_day ||
     s.home_cards.vehicle !== d.home_cards.vehicle ||
     s.home_cards.seetu !== d.home_cards.seetu ||
-    s.home_cards.salary_advance !== d.home_cards.salary_advance
+    s.home_cards.salary_advance !== d.home_cards.salary_advance ||
+    s.home_card_order.join(",") !== d.home_card_order.join(",") ||
+    s.app_features.vehicle_logs !== d.app_features.vehicle_logs ||
+    s.app_features.credits !== d.app_features.credits ||
+    s.app_features.salary_advance !== d.app_features.salary_advance ||
+    s.app_features.seetu !== d.app_features.seetu
   );
 }
 

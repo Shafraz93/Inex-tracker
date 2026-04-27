@@ -7,6 +7,7 @@ import * as React from "react";
 
 import { MAIN_NAV_ITEMS } from "@/config/main-nav";
 import { Button } from "@/components/ui/button";
+import { useAppSettings } from "@/contexts/app-settings-context";
 import {
   Sheet,
   SheetContent,
@@ -51,19 +52,38 @@ function IconLink({
 export function MobileFooterNav() {
   const pathname = usePathname();
   const router = useRouter();
+  const { settings, hydrated } = useAppSettings();
   const [menuOpen, setMenuOpen] = React.useState(false);
   const [quickAddOpen, setQuickAddOpen] = React.useState(false);
   const [signingOut, setSigningOut] = React.useState(false);
 
-  const quickAddItems = [
-    { label: "New Income log", href: "/income" },
-    { label: "New Expence log", href: "/expenses" },
-    { label: "New Credit log", href: "/credits" },
-    { label: "New seetu Log", href: "/seetu/pools" },
-    { label: "New Vehicle log", href: "/vehicle-logs" },
-    { label: "New Credit log", href: "/credits" },
-    { label: "Advance log", href: "/salary-advance" },
-  ] as const;
+  const enabledNavItems = React.useMemo(
+    () =>
+      MAIN_NAV_ITEMS.filter(
+        (item) => !item.feature || (hydrated && settings.app_features[item.feature])
+      ),
+    [hydrated, settings.app_features]
+  );
+  const quickAddItems = React.useMemo(() => {
+    const items = [
+      { label: "New Income log", href: "/income" },
+      { label: "New Expense log", href: "/expenses" },
+    ];
+    if (!hydrated) return items;
+    if (settings.app_features.credits) {
+      items.push({ label: "New Credit log", href: "/credits" });
+    }
+    if (settings.app_features.seetu) {
+      items.push({ label: "New Seetu log", href: "/seetu/pools" });
+    }
+    if (settings.app_features.vehicle_logs) {
+      items.push({ label: "New Vehicle log", href: "/vehicle-logs" });
+    }
+    if (settings.app_features.salary_advance) {
+      items.push({ label: "Advance log", href: "/salary-advance" });
+    }
+    return items;
+  }, [hydrated, settings.app_features]);
 
   async function handleSignOut() {
     setSigningOut(true);
@@ -117,7 +137,7 @@ export function MobileFooterNav() {
               <SheetTitle>Menu</SheetTitle>
             </SheetHeader>
             <nav className="flex flex-1 flex-col gap-1 overflow-y-auto p-4">
-              {MAIN_NAV_ITEMS.map(({ href, label }) => {
+              {enabledNavItems.map(({ href, label }) => {
                 const active =
                   href === "/"
                     ? pathname === "/"
