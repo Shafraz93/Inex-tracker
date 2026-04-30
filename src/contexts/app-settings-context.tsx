@@ -31,6 +31,7 @@ function isMeaningful(s: AppSettingsState): boolean {
   return (
     s.month_start_day !== d.month_start_day ||
     s.home_cards.vehicle !== d.home_cards.vehicle ||
+    s.home_cards.food_groceries !== d.home_cards.food_groceries ||
     s.home_cards.seetu !== d.home_cards.seetu ||
     s.home_cards.salary_advance !== d.home_cards.salary_advance ||
     s.home_card_order.join(",") !== d.home_card_order.join(",") ||

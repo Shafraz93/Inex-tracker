@@ -113,14 +113,8 @@ export function SeetuHomeSummary() {
   const model = buildSeetuHomeCardModel(pools);
 
   return (
-    <Card
-      size="sm"
-      className={cn(
-        "w-full border-sky-500/40 ring-sky-500/25",
-        "dark:border-sky-400/70 dark:ring-sky-400/35"
-      )}
-    >
-      <CardHeader className="border-b border-sky-500/25 dark:border-sky-400/45">
+    <Card size="sm" className="w-full">
+      <CardHeader className="border-b border-border">
         <CardTitle>Seetu</CardTitle>
         <CardAction>
           <Link

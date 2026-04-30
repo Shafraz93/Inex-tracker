@@ -40,14 +40,8 @@ export function SalaryAdvanceHomeSummary() {
   const paidOff = state.starting_balance > 0 && remaining < 0.01;
 
   return (
-    <Card
-      size="sm"
-      className={cn(
-        "w-full border-emerald-500/40 ring-emerald-500/25",
-        "dark:border-emerald-400/65 dark:ring-emerald-400/30"
-      )}
-    >
-      <CardHeader className="border-b border-emerald-500/25 dark:border-emerald-400/40">
+    <Card size="sm" className="w-full">
+      <CardHeader className="border-b border-border">
         <CardTitle>Salary advance</CardTitle>
         <CardAction>
           <Link

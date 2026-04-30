@@ -1,4 +1,4 @@
-export type HomeCardKey = "vehicle" | "seetu" | "salary_advance";
+export type HomeCardKey = "vehicle" | "seetu" | "salary_advance" | "food_groceries";
 export type AppFeatureKey =
   | "vehicle_logs"
   | "credits"
@@ -9,6 +9,7 @@ export type HomeCardVisibility = {
   vehicle: boolean;
   seetu: boolean;
   salary_advance: boolean;
+  food_groceries: boolean;
 };
 
 export type AppSettingsState = {
@@ -27,8 +28,9 @@ export function defaultAppSettings(): AppSettingsState {
       vehicle: true,
       seetu: true,
       salary_advance: true,
+      food_groceries: true,
     },
-    home_card_order: ["vehicle", "seetu", "salary_advance"],
+    home_card_order: ["vehicle", "food_groceries", "seetu", "salary_advance"],
     app_features: {
       vehicle_logs: true,
       credits: true,
@@ -39,7 +41,12 @@ export function defaultAppSettings(): AppSettingsState {
 }
 
 function normalizeHomeCardOrder(raw: unknown): HomeCardKey[] {
-  const fallback: HomeCardKey[] = ["vehicle", "seetu", "salary_advance"];
+  const fallback: HomeCardKey[] = [
+    "vehicle",
+    "food_groceries",
+    "seetu",
+    "salary_advance",
+  ];
   if (!Array.isArray(raw)) return fallback;
 
   const allowed = new Set<HomeCardKey>(fallback);
@@ -77,6 +84,10 @@ export function normalizeAppSettings(data: unknown): AppSettingsState {
         cards.salary_advance == null
           ? d.home_cards.salary_advance
           : Boolean(cards.salary_advance),
+      food_groceries:
+        cards.food_groceries == null
+          ? d.home_cards.food_groceries
+          : Boolean(cards.food_groceries),
     },
     home_card_order: normalizeHomeCardOrder(raw.home_card_order),
     app_features: {

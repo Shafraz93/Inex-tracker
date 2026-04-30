@@ -32,6 +32,10 @@ const HOME_CARD_META: Record<
     title: "Vehicle card",
     description: "Bike spend summary card.",
   },
+  food_groceries: {
+    title: "Food & groceries card",
+    description: "Quickly add food/grocery expenses from Home.",
+  },
   seetu: {
     title: "Seetu card",
     description: "Seetu summary card.",
@@ -64,8 +68,9 @@ const OPTIONAL_FEATURE_META: Record<
   },
 };
 
-const HOME_CARD_FEATURE_MAP: Record<HomeCardKey, AppFeatureKey> = {
+const HOME_CARD_FEATURE_MAP: Record<HomeCardKey, AppFeatureKey | null> = {
   vehicle: "vehicle_logs",
+  food_groceries: null,
   seetu: "seetu",
   salary_advance: "salary_advance",
 };
@@ -107,7 +112,10 @@ export default function SettingsPage() {
     [budgetState.categories]
   );
   const enabledHomeCards = settings.home_card_order.filter(
-    (cardKey) => settings.app_features[HOME_CARD_FEATURE_MAP[cardKey]]
+    (cardKey) => {
+      const feature = HOME_CARD_FEATURE_MAP[cardKey];
+      return feature == null || settings.app_features[feature];
+    }
   );
 
   if (!hydrated || !budgetHydrated || !vehicleHydrated || !creditsHydrated) {
@@ -120,7 +128,7 @@ export default function SettingsPage() {
 
   return (
     <div className="bg-background flex min-h-0 flex-1 flex-col px-4 py-6">
-      <div className="mx-auto flex w-full max-w-2xl flex-col gap-6">
+      <div className="mx-auto flex w-full max-w-5xl flex-col gap-6">
         <header className="space-y-2">
           <h1 className="text-foreground text-2xl font-semibold tracking-tight">
             Settings

@@ -20,7 +20,7 @@ export function AppHeader() {
 
   return (
     <header className="bg-background/95 supports-backdrop-filter:bg-background/80 sticky top-0 z-40 border-b border-border pt-[env(safe-area-inset-top)] backdrop-blur-sm">
-      <div className="flex h-14 items-center gap-3 pr-[max(0.75rem,env(safe-area-inset-right))] pl-[max(0.75rem,env(safe-area-inset-left))]">
+      <div className="mx-auto flex h-14 w-full max-w-5xl items-center gap-3 pr-[max(0.75rem,env(safe-area-inset-right))] pl-[max(0.75rem,env(safe-area-inset-left))]">
         <Link
           href="/"
           className="flex min-w-0 shrink-0 items-center justify-start"
