@@ -13,8 +13,13 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useAppSettings } from "@/contexts/app-settings-context";
 import { useBudgetTracker } from "@/contexts/budget-tracker-context";
 import { useVehicleLicense } from "@/contexts/vehicle-license-context";
+import {
+  currentSalaryMonthRangeIso,
+  salaryMonthRangeForYm,
+} from "@/lib/vehicle-license/salary-month";
 import { formatMoney } from "@/lib/currency";
 import {
   addBudgetEntryLocal,
@@ -92,8 +97,24 @@ function LoadingBlock({ className }: { className: string }) {
 export function BudgetTrackerDashboard({ view }: { view: BudgetTrackerView }) {
   const { state, setState, hydrated, error, setError } = useBudgetTracker();
   const { state: vehicleState } = useVehicleLicense();
+  const { settings, hydrated: settingsHydrated } = useAppSettings();
 
   const [selectedMonth, setSelectedMonth] = React.useState(monthIso);
+
+  const didInitMonth = React.useRef(false);
+  React.useEffect(() => {
+    if (!didInitMonth.current && settingsHydrated) {
+      didInitMonth.current = true;
+      setSelectedMonth(
+        currentSalaryMonthRangeIso(settings.month_start_day).from.slice(0, 7)
+      );
+    }
+  }, [settingsHydrated, settings.month_start_day]);
+
+  const summaryRange = React.useMemo(
+    () => salaryMonthRangeForYm(selectedMonth, settings.month_start_day),
+    [selectedMonth, settings.month_start_day]
+  );
 
   const [categoryName, setCategoryName] = React.useState("");
   const [categoryKind, setCategoryKind] = React.useState<BudgetCategoryKind>("expense");
@@ -206,18 +227,18 @@ export function BudgetTrackerDashboard({ view }: { view: BudgetTrackerView }) {
   const monthlyIncome = React.useMemo(
     () =>
       state.income_entries.reduce((sum, row) => {
-        if (!row.earned_on.startsWith(selectedMonth)) return sum;
+        if (row.earned_on < summaryRange.from || row.earned_on > summaryRange.to) return sum;
         return sum + row.amount;
       }, 0),
-    [state.income_entries, selectedMonth]
+    [state.income_entries, summaryRange]
   );
   const monthlyExpense = React.useMemo(
     () =>
       allExpenseRows.reduce((sum, row) => {
-        if (!row.spent_on.startsWith(selectedMonth)) return sum;
+        if (row.spent_on < summaryRange.from || row.spent_on > summaryRange.to) return sum;
         return sum + row.amount;
       }, 0),
-    [allExpenseRows, selectedMonth]
+    [allExpenseRows, summaryRange]
   );
   const monthlyBudget = React.useMemo(
     () =>
@@ -513,7 +534,13 @@ export function BudgetTrackerDashboard({ view }: { view: BudgetTrackerView }) {
                 : "Categories"}
         </h1>
         <p className="text-muted-foreground text-sm leading-relaxed">
-          Budget management is the process of planning and controlling income and expenses to use money wisely and avoid overspending.
+          {view === "budget"
+            ? "Set spending limits per category and see how your actual expenses compare to your plan."
+            : view === "income"
+              ? "Record your earnings for the month — salary, freelance, bonuses, or any other income."
+              : view === "expenses"
+                ? "All your spending in one place — manual entries and vehicle logs combined."
+                : "Organise your categories to group income and expenses the way that makes sense to you."}
         </p>
       </header>
 

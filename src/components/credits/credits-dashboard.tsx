@@ -222,8 +222,7 @@ export function CreditsDashboard() {
           Credits
         </h1>
         <p className="text-muted-foreground text-sm leading-relaxed">
-          Track borrowed credits by person and settlement logs. Each settlement is
-          auto-added to Expenses using the selected global category.
+          Record money you owe and log repayments. Settlements are automatically synced to your Expenses.
         </p>
       </header>
 

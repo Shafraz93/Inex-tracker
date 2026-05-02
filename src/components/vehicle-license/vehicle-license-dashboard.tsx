@@ -17,6 +17,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useBudgetTracker } from "@/contexts/budget-tracker-context";
 import { useVehicleLicense } from "@/contexts/vehicle-license-context";
 import { formatMoney } from "@/lib/currency";
+import { VehicleLicenseHomeSummary } from "@/components/vehicle-license/vehicle-license-home-summary";
 import {
   addFuelLogLocal,
   addServiceLogLocal,
@@ -92,38 +93,15 @@ export function VehicleLicenseDashboard() {
   }
 
   function onSaveDetails() {
-    const nextCategoryId =
-      detailsDraft.log_category_id &&
-      categoryNameById.has(detailsDraft.log_category_id)
-        ? detailsDraft.log_category_id
-        : null;
-
-    if (expenseCategories.length > 0 && !nextCategoryId) {
-      setError("Select a global category for vehicle logs.");
-      return;
-    }
-
     setState((prev) => ({
       ...prev,
       details: {
+        ...prev.details,
         bike_number: detailsDraft.bike_number.trim(),
         chassis_number: detailsDraft.chassis_number.trim(),
         year_made: detailsDraft.year_made.trim(),
         model: detailsDraft.model.trim(),
-        log_category_id: nextCategoryId,
       },
-      service_logs: prev.service_logs.map((row) => ({
-        ...row,
-        category_id: nextCategoryId,
-      })),
-      upgrade_logs: prev.upgrade_logs.map((row) => ({
-        ...row,
-        category_id: nextCategoryId,
-      })),
-      fuel_logs: prev.fuel_logs.map((row) => ({
-        ...row,
-        category_id: nextCategoryId,
-      })),
     }));
     setError(null);
     setIsEditingDetails(false);
@@ -178,7 +156,7 @@ export function VehicleLicenseDashboard() {
       return;
     }
     if (!globalCategoryValue) {
-      setError("Set a global vehicle category in Bike details first.");
+      setError("Set a vehicle global category in Settings first.");
       return;
     }
     const payload = {
@@ -221,7 +199,7 @@ export function VehicleLicenseDashboard() {
       return;
     }
     if (!globalCategoryValue) {
-      setError("Set a global vehicle category in Bike details first.");
+      setError("Set a vehicle global category in Settings first.");
       return;
     }
     const payload = {
@@ -257,7 +235,7 @@ export function VehicleLicenseDashboard() {
       return;
     }
     if (!globalCategoryValue) {
-      setError("Set a global vehicle category in Bike details first.");
+      setError("Set a vehicle global category in Settings first.");
       return;
     }
     const payload = {
@@ -285,10 +263,11 @@ export function VehicleLicenseDashboard() {
           Vehicle logs
         </h1>
         <p className="text-muted-foreground text-sm leading-relaxed">
-          Track bike details, service spending, upgrades/parts changes, and fuel
-          logs in one place.
+          Log your bike's service, upgrades, and fuel. All costs feed into your monthly budget automatically.
         </p>
       </header>
+
+      <VehicleLicenseHomeSummary />
 
       {error ? (
         <p className="text-destructive bg-destructive/10 rounded-lg px-3 py-2 text-sm">
@@ -308,8 +287,7 @@ export function VehicleLicenseDashboard() {
             <div>
               <CardTitle>Bike details</CardTitle>
               <CardDescription>
-                Save your vehicle information and set one global category for all
-                vehicle logs.
+                Save your vehicle information here.
               </CardDescription>
             </div>
             {isEditingDetails ? (
@@ -384,28 +362,6 @@ export function VehicleLicenseDashboard() {
               readOnly={!isEditingDetails}
               placeholder="Model"
             />
-          </div>
-          <div className="grid gap-2 sm:col-span-2">
-            <Label htmlFor="vehicle-global-category">Global log category</Label>
-            <select
-              id="vehicle-global-category"
-              className="h-8 rounded-lg border border-input bg-background px-2 text-sm disabled:opacity-70"
-              value={detailsView.log_category_id ?? ""}
-              onChange={(e) =>
-                setDetailDraft(
-                  "log_category_id",
-                  e.target.value ? e.target.value : null
-                )
-              }
-              disabled={!isEditingDetails}
-            >
-              <option value="">Select category</option>
-              {expenseCategories.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
           </div>
         </CardContent>
       </Card>

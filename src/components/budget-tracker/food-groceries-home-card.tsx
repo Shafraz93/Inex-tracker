@@ -14,9 +14,11 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useAppSettings } from "@/contexts/app-settings-context";
 import { useBudgetTracker } from "@/contexts/budget-tracker-context";
 import { addExpenseEntryLocal } from "@/lib/budget-tracker/local-storage";
 import { formatMoney } from "@/lib/currency";
+import { currentSalaryMonthRangeIso } from "@/lib/vehicle-license/salary-month";
 
 function todayIso(): string {
   const d = new Date();
@@ -28,6 +30,7 @@ function todayIso(): string {
 
 export function FoodGroceriesHomeCard() {
   const { state, setState, hydrated } = useBudgetTracker();
+  const { settings } = useAppSettings();
 
   const [date, setDate] = React.useState(todayIso);
   const [amount, setAmount] = React.useState("");
@@ -59,18 +62,21 @@ export function FoodGroceriesHomeCard() {
     if (!categoryId && suggestedCategory) setCategoryId(suggestedCategory);
   }, [categoryId, suggestedCategory]);
 
-  const monthKey = date.slice(0, 7);
+  const { from: monthFrom, to: monthTo } = React.useMemo(
+    () => currentSalaryMonthRangeIso(settings.month_start_day),
+    [settings.month_start_day]
+  );
   const monthTotal = React.useMemo(
     () =>
       state.expense_entries.reduce((sum, row) => {
-        if (!row.spent_on.startsWith(monthKey)) return sum;
+        if (row.spent_on < monthFrom || row.spent_on > monthTo) return sum;
         const byCategory =
           row.category_id != null && foodCategoryIds.has(row.category_id);
         const byTitle = /food|grocery|grocer/i.test(row.title);
         if (!byCategory && !byTitle) return sum;
         return sum + row.amount;
       }, 0),
-    [state.expense_entries, monthKey, foodCategoryIds]
+    [state.expense_entries, monthFrom, monthTo, foodCategoryIds]
   );
 
   if (!hydrated) return null;

@@ -32,3 +32,13 @@ export function currentSalaryMonthRangeIso(startDay = 6): { from: string; to: st
 export function salaryMonthLabel(fromIso: string, toIso: string): string {
   return `${fromIso} to ${toIso}`;
 }
+
+export function salaryMonthRangeForYm(ym: string, startDay: number): { from: string; to: string } {
+  const s = Math.min(28, Math.max(1, Math.trunc(startDay)));
+  const prevEnd = s === 1 ? 1 : s - 1;
+  const [y, m] = ym.split("-").map(Number);
+  return {
+    from: `${ym}-${String(s).padStart(2, "0")}`,
+    to: dateToIsoLocal(new Date(y, m, prevEnd)),
+  };
+}

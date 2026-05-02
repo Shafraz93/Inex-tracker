@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { RefreshCw } from "lucide-react";
+import { RefreshCw, Settings } from "lucide-react";
 import * as React from "react";
 
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -48,8 +48,14 @@ export function AppHeader() {
             disabled={syncing}
           >
             <RefreshCw className={cn("size-4", syncing ? "animate-spin" : "")} />
-            Sync
           </Button>
+          <Link
+            href="/settings"
+            aria-label="Settings"
+            className="max-md:hidden inline-flex items-center justify-center rounded-md text-sm font-medium hover:bg-accent hover:text-accent-foreground h-8 w-8 shrink-0"
+          >
+            <Settings className="size-4" />
+          </Link>
           <ThemeToggle />
         </div>
       </div>
