@@ -66,6 +66,10 @@ const OPTIONAL_FEATURE_META: Record<
     title: "Seetu",
     description: "Rotating savings pools and payouts.",
   },
+  password_manager: {
+    title: "Password Manager",
+    description: "Store and manage your passwords securely.",
+  },
 };
 
 const HOME_CARD_FEATURE_MAP: Record<HomeCardKey, AppFeatureKey | null> = {

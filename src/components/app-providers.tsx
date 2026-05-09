@@ -5,6 +5,7 @@ import * as React from "react";
 import { AppSettingsProvider } from "@/contexts/app-settings-context";
 import { BudgetTrackerProvider } from "@/contexts/budget-tracker-context";
 import { CreditsProvider } from "@/contexts/credits-context";
+import { PasswordManagerProvider } from "@/contexts/password-manager-context";
 import { SalaryAdvanceProvider } from "@/contexts/salary-advance-context";
 import { SeetuProvider } from "@/contexts/seetu-context";
 import { VehicleLicenseProvider } from "@/contexts/vehicle-license-context";
@@ -16,7 +17,9 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
         <BudgetTrackerProvider>
           <CreditsProvider>
             <SalaryAdvanceProvider>
-              <VehicleLicenseProvider>{children}</VehicleLicenseProvider>
+              <PasswordManagerProvider>
+                <VehicleLicenseProvider>{children}</VehicleLicenseProvider>
+              </PasswordManagerProvider>
             </SalaryAdvanceProvider>
           </CreditsProvider>
         </BudgetTrackerProvider>

@@ -27,8 +27,8 @@ export function SeetuSubNav() {
 
   return (
     <nav className="mb-8 flex flex-wrap gap-8 border-b border-border pb-px">
-      {item("/seetu/pools", "Pools")}
       {item("/seetu/payouts", "Payouts")}
+      {item("/seetu/pools", "Pools")}
     </nav>
   );
 }

@@ -32,6 +32,8 @@ export type SeetuPoolRow = {
   contribution_per_slot: number;
   /** When true, roster, pool settings, and payout edits are disabled. */
   is_locked: boolean;
+  /** Plain-text password required to unlock. Null means no password was set. */
+  lock_password: string | null;
   seetu_roster_rows: SeetuRosterRow[];
   seetu_cycles: SeetuCycleRow[];
 };

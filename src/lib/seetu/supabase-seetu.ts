@@ -24,6 +24,7 @@ function mapDbPoolToRow(raw: Record<string, unknown>): SeetuPoolRow {
     start_month: isoDateOrNull(raw.start_month as string | null),
     contribution_per_slot: Number(raw.contribution_per_slot ?? 0),
     is_locked: Boolean(raw.is_locked),
+    lock_password: raw.lock_password != null ? String(raw.lock_password) : null,
     seetu_roster_rows: roster
       .sort((a, b) => Number(a.sort_order) - Number(b.sort_order))
       .map((r) => {
@@ -84,6 +85,7 @@ export async function fetchSeetuPools(
       start_month,
       contribution_per_slot,
       is_locked,
+      lock_password,
       seetu_roster_rows (
         id,
         sort_order,
@@ -134,6 +136,7 @@ export async function replacePoolSnapshot(
       start_month: p.start_month,
       contribution_per_slot: p.contribution_per_slot,
       is_locked: p.is_locked,
+      lock_password: p.lock_password,
     },
     { onConflict: "id" }
   );

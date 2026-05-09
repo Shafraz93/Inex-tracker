@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAppSettings } from "@/contexts/app-settings-context";
 import { useBudgetTracker } from "@/contexts/budget-tracker-context";
+import { useSalaryAdvance } from "@/contexts/salary-advance-context";
 import { useVehicleLicense } from "@/contexts/vehicle-license-context";
 import {
   currentSalaryMonthRangeIso,
@@ -36,12 +37,17 @@ import {
   updateExpenseEntryLocal,
   updateIncomeEntryLocal,
 } from "@/lib/budget-tracker/local-storage";
-import type { BudgetCategoryKind, ExpenseEntry } from "@/lib/budget-tracker/types";
+import type { BudgetCategoryKind, ExpenseEntry, IncomeEntry } from "@/lib/budget-tracker/types";
 
 export type BudgetTrackerView = "budget" | "income" | "expenses" | "categories";
 
+type IncomeListRow = IncomeEntry & {
+  source: "manual" | "salary-advance";
+  source_label?: string;
+};
+
 type ExpenseListRow = ExpenseEntry & {
-  source: "manual" | "vehicle";
+  source: "manual" | "vehicle" | "salary-advance";
   source_label?: string;
 };
 
@@ -97,6 +103,7 @@ function LoadingBlock({ className }: { className: string }) {
 export function BudgetTrackerDashboard({ view }: { view: BudgetTrackerView }) {
   const { state, setState, hydrated, error, setError } = useBudgetTracker();
   const { state: vehicleState } = useVehicleLicense();
+  const { state: salaryAdvanceState } = useSalaryAdvance();
   const { settings, hydrated: settingsHydrated } = useAppSettings();
 
   const [selectedMonth, setSelectedMonth] = React.useState(monthIso);
@@ -212,33 +219,81 @@ export function BudgetTrackerDashboard({ view }: { view: BudgetTrackerView }) {
     return [...fromService, ...fromUpgrade, ...fromFuel];
   }, [vehicleState]);
 
+  const salaryAdvanceIncomeEntries = React.useMemo<IncomeListRow[]>(() => {
+    return salaryAdvanceState.advance_logs.map((log) => ({
+      id: `salary-advance:${log.id}`,
+      earned_on: log.advance_on,
+      title: "Salary advance",
+      amount: log.amount,
+      category_id: null,
+      note: null,
+      logged_at: log.logged_at,
+      source: "salary-advance" as const,
+      source_label: "Salary advance",
+    }));
+  }, [salaryAdvanceState.advance_logs]);
+
+  const salaryAdvanceExpenseEntries = React.useMemo<ExpenseListRow[]>(() => {
+    return salaryAdvanceState.repayments.map((rep) => ({
+      id: `salary-advance:repayment:${rep.id}`,
+      spent_on: rep.paid_on,
+      title: "Salary advance repayment",
+      amount: rep.amount,
+      category_id: null,
+      note: rep.note,
+      logged_at: rep.logged_at,
+      source: "salary-advance" as const,
+      source_label: "Salary advance",
+    }));
+  }, [salaryAdvanceState.repayments]);
+
+  const allIncomeRows = React.useMemo<IncomeListRow[]>(() => {
+    const manual: IncomeListRow[] = state.income_entries.map((row) => ({
+      ...row,
+      source: "manual",
+    }));
+    return [...manual, ...salaryAdvanceIncomeEntries].sort((a, b) => {
+      const d = b.earned_on.localeCompare(a.earned_on);
+      if (d !== 0) return d;
+      return (b.logged_at ?? "").localeCompare(a.logged_at ?? "");
+    });
+  }, [state.income_entries, salaryAdvanceIncomeEntries]);
+
   const allExpenseRows = React.useMemo<ExpenseListRow[]>(() => {
     const manual: ExpenseListRow[] = state.expense_entries.map((row) => ({
       ...row,
       source: "manual",
     }));
-    return [...manual, ...vehicleExpenseEntries].sort((a, b) => {
+    return [...manual, ...vehicleExpenseEntries, ...salaryAdvanceExpenseEntries].sort((a, b) => {
       const d = b.spent_on.localeCompare(a.spent_on);
       if (d !== 0) return d;
       return (b.logged_at ?? "").localeCompare(a.logged_at ?? "");
     });
-  }, [state.expense_entries, vehicleExpenseEntries]);
+  }, [state.expense_entries, vehicleExpenseEntries, salaryAdvanceExpenseEntries]);
+
+  const filteredIncomeRows = React.useMemo(
+    () =>
+      allIncomeRows.filter(
+        (row) => row.earned_on >= summaryRange.from && row.earned_on <= summaryRange.to
+      ),
+    [allIncomeRows, summaryRange]
+  );
+
+  const filteredExpenseRows = React.useMemo(
+    () =>
+      allExpenseRows.filter(
+        (row) => row.spent_on >= summaryRange.from && row.spent_on <= summaryRange.to
+      ),
+    [allExpenseRows, summaryRange]
+  );
 
   const monthlyIncome = React.useMemo(
-    () =>
-      state.income_entries.reduce((sum, row) => {
-        if (row.earned_on < summaryRange.from || row.earned_on > summaryRange.to) return sum;
-        return sum + row.amount;
-      }, 0),
-    [state.income_entries, summaryRange]
+    () => filteredIncomeRows.reduce((sum, row) => sum + row.amount, 0),
+    [filteredIncomeRows]
   );
   const monthlyExpense = React.useMemo(
-    () =>
-      allExpenseRows.reduce((sum, row) => {
-        if (row.spent_on < summaryRange.from || row.spent_on > summaryRange.to) return sum;
-        return sum + row.amount;
-      }, 0),
-    [allExpenseRows, summaryRange]
+    () => filteredExpenseRows.reduce((sum, row) => sum + row.amount, 0),
+    [filteredExpenseRows]
   );
   const monthlyBudget = React.useMemo(
     () =>
@@ -255,7 +310,7 @@ export function BudgetTrackerDashboard({ view }: { view: BudgetTrackerView }) {
 
   const categoryUsage = React.useMemo(() => {
     const map = new Map<string, { entries: number; amount: number }>();
-    for (const row of state.income_entries) {
+    for (const row of allIncomeRows) {
       if (!row.category_id) continue;
       const prev = map.get(row.category_id) ?? { entries: 0, amount: 0 };
       map.set(row.category_id, {
@@ -272,7 +327,7 @@ export function BudgetTrackerDashboard({ view }: { view: BudgetTrackerView }) {
       });
     }
     return map;
-  }, [state.income_entries, allExpenseRows]);
+  }, [allIncomeRows, allExpenseRows]);
 
   function resetCategoryForm() {
     setCategoryName("");
@@ -825,14 +880,17 @@ export function BudgetTrackerDashboard({ view }: { view: BudgetTrackerView }) {
                   <th className="text-muted-foreground px-3 py-2.5 text-xs font-medium uppercase">
                     Note
                   </th>
+                  <th className="text-muted-foreground px-3 py-2.5 text-xs font-medium uppercase">
+                    Source
+                  </th>
                   <th className="text-muted-foreground w-28 px-3 py-2.5 text-xs font-medium uppercase">
                     Action
                   </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {state.income_entries.length > 0 ? (
-                  state.income_entries.map((row) => (
+                {filteredIncomeRows.length > 0 ? (
+                  filteredIncomeRows.map((row) => (
                     <tr key={row.id} className="bg-card">
                       <td className="px-3 py-2.5 tabular-nums">{row.earned_on}</td>
                       <td className="px-3 py-2.5">{row.title}</td>
@@ -849,42 +907,55 @@ export function BudgetTrackerDashboard({ view }: { view: BudgetTrackerView }) {
                       <td className="px-3 py-2.5">
                         {row.note || <span className="text-muted-foreground">-</span>}
                       </td>
+                      <td className="px-3 py-2.5">
+                        <span className="text-muted-foreground rounded bg-muted px-2 py-0.5 text-xs">
+                          {row.source === "salary-advance"
+                            ? row.source_label ?? "Salary advance"
+                            : "Manual"}
+                        </span>
+                      </td>
                       <td className="px-3 py-2">
-                        <div className="flex items-center gap-1">
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon-xs"
-                            aria-label="Edit income entry"
-                            onClick={() => {
-                              setEditingIncomeId(row.id);
-                              setIncomeDate(row.earned_on);
-                              setIncomeTitle(row.title);
-                              setIncomeAmount(String(row.amount));
-                              setIncomeCategoryId(row.category_id ?? "");
-                              setIncomeNote(row.note ?? "");
-                            }}
-                          >
-                            <Pencil className="size-4" />
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon-xs"
-                            aria-label="Delete income entry"
-                            onClick={() =>
-                              setState((prev) => removeIncomeEntryLocal(prev, row.id))
-                            }
-                          >
-                            <Trash2 className="size-4" />
-                          </Button>
-                        </div>
+                        {row.source === "manual" ? (
+                          <div className="flex items-center gap-1">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon-xs"
+                              aria-label="Edit income entry"
+                              onClick={() => {
+                                setEditingIncomeId(row.id);
+                                setIncomeDate(row.earned_on);
+                                setIncomeTitle(row.title);
+                                setIncomeAmount(String(row.amount));
+                                setIncomeCategoryId(row.category_id ?? "");
+                                setIncomeNote(row.note ?? "");
+                              }}
+                            >
+                              <Pencil className="size-4" />
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon-xs"
+                              aria-label="Delete income entry"
+                              onClick={() =>
+                                setState((prev) => removeIncomeEntryLocal(prev, row.id))
+                              }
+                            >
+                              <Trash2 className="size-4" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <span className="text-muted-foreground text-xs">
+                            Edit in Salary Advance
+                          </span>
+                        )}
                       </td>
                     </tr>
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={6} className="text-muted-foreground px-3 py-6 text-center">
+                    <td colSpan={7} className="text-muted-foreground px-3 py-6 text-center">
                       No income entries yet.
                     </td>
                   </tr>
@@ -1003,10 +1074,10 @@ export function BudgetTrackerDashboard({ view }: { view: BudgetTrackerView }) {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {allExpenseRows.length > 0 ? (
-                  allExpenseRows.map((row) => (
+                {filteredExpenseRows.length > 0 ? (
+                  filteredExpenseRows.map((row) => (
                     <tr key={row.id} className="bg-card">
-                      <td className="px-3 py-2.5 tabular-nums">{row.spent_on}</td>
+                      <td className="px-3 py-2.5 tabular-nums whitespace-nowrap">{row.spent_on}</td>
                       <td className="px-3 py-2.5">{row.title}</td>
                       <td className="px-3 py-2.5">
                         {row.category_id ? (
@@ -1025,7 +1096,9 @@ export function BudgetTrackerDashboard({ view }: { view: BudgetTrackerView }) {
                         <span className="text-muted-foreground rounded bg-muted px-2 py-0.5 text-xs">
                           {row.source === "vehicle"
                             ? row.source_label ?? "Vehicle logs"
-                            : "Manual"}
+                            : row.source === "salary-advance"
+                              ? row.source_label ?? "Salary advance"
+                              : "Manual"}
                         </span>
                       </td>
                       <td className="px-3 py-2">
@@ -1059,9 +1132,13 @@ export function BudgetTrackerDashboard({ view }: { view: BudgetTrackerView }) {
                               <Trash2 className="size-4" />
                             </Button>
                           </div>
-                        ) : (
+                        ) : row.source === "vehicle" ? (
                           <span className="text-muted-foreground text-xs">
                             Edit in Vehicle logs
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground text-xs">
+                            Edit in Salary Advance
                           </span>
                         )}
                       </td>

@@ -15,4 +15,5 @@ export const MAIN_NAV_ITEMS: ReadonlyArray<{
   { href: "/salary-advance", label: "Salary advance", feature: "salary_advance" },
   { href: "/categories", label: "Categories" },
   { href: "/seetu/pools", label: "Seetu (rotating savings)", feature: "seetu" },
+  { href: "/password-manager", label: "Passwords", feature: "password_manager" },
 ] as const;

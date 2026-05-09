@@ -3,7 +3,8 @@ export type AppFeatureKey =
   | "vehicle_logs"
   | "credits"
   | "salary_advance"
-  | "seetu";
+  | "seetu"
+  | "password_manager";
 
 export type HomeCardVisibility = {
   vehicle: boolean;
@@ -36,6 +37,7 @@ export function defaultAppSettings(): AppSettingsState {
       credits: true,
       salary_advance: true,
       seetu: true,
+      password_manager: true,
     },
   };
 }
@@ -102,6 +104,10 @@ export function normalizeAppSettings(data: unknown): AppSettingsState {
           ? d.app_features.salary_advance
           : Boolean(features.salary_advance),
       seetu: features.seetu == null ? d.app_features.seetu : Boolean(features.seetu),
+      password_manager:
+        features.password_manager == null
+          ? d.app_features.password_manager
+          : Boolean(features.password_manager),
     },
   };
 }

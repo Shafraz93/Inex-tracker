@@ -64,8 +64,8 @@ type SeetuContextValue = {
     >
   ) => void;
   syncCycleMonthsToPoolStart: (poolId: string) => void;
-  lockPool: (poolId: string) => void;
-  unlockPool: (poolId: string) => void;
+  lockPool: (poolId: string, password: string) => void;
+  unlockPool: (poolId: string, password: string) => boolean;
 };
 
 const SeetuContext = React.createContext<SeetuContextValue | null>(null);
@@ -260,6 +260,7 @@ export function SeetuProvider({ children }: { children: React.ReactNode }) {
           start_month: firstDayFromMonthInput(newStartMonth),
           contribution_per_slot: amt,
           is_locked: false,
+          lock_password: null,
           seetu_roster_rows: [],
           seetu_cycles: [],
         },
@@ -272,12 +273,6 @@ export function SeetuProvider({ children }: { children: React.ReactNode }) {
 
   const deletePool = React.useCallback(
     async (poolId: string) => {
-      if (
-        !confirm(
-          "Delete this pool and all roster rows, cycles, and payments?"
-        )
-      )
-        return;
       if (userId) {
         const { error: delErr } = await supabase
           .from("seetu_pools")
@@ -300,33 +295,36 @@ export function SeetuProvider({ children }: { children: React.ReactNode }) {
     [supabase, userId]
   );
 
-  const lockPool = React.useCallback((poolId: string) => {
-    if (
-      !confirm(
-        "Lock this pool? You will not be able to change roster, amounts, months, or payment checkmarks until you unlock it."
-      )
-    )
-      return;
+  const lockPool = React.useCallback((poolId: string, password: string) => {
     setPools((prev) =>
       normalizePools(
-        prev.map((p) => (p.id === poolId ? { ...p, is_locked: true } : p))
+        prev.map((p) =>
+          p.id === poolId
+            ? { ...p, is_locked: true, lock_password: password }
+            : p
+        )
       )
     );
   }, []);
 
-  const unlockPool = React.useCallback((poolId: string) => {
-    if (
-      !confirm(
-        "Unlock this pool? You will be able to edit it again."
-      )
-    )
-      return;
-    setPools((prev) =>
-      normalizePools(
-        prev.map((p) => (p.id === poolId ? { ...p, is_locked: false } : p))
-      )
-    );
-  }, []);
+  const unlockPool = React.useCallback(
+    (poolId: string, password: string): boolean => {
+      const pool = pools.find((p) => p.id === poolId);
+      if (!pool) return false;
+      if (pool.lock_password && pool.lock_password !== password) return false;
+      setPools((prev) =>
+        normalizePools(
+          prev.map((p) =>
+            p.id === poolId
+              ? { ...p, is_locked: false, lock_password: null }
+              : p
+          )
+        )
+      );
+      return true;
+    },
+    [pools]
+  );
 
   const addRosterRow = React.useCallback((poolId: string) => {
     setPools((prev) =>
@@ -573,7 +571,6 @@ export function SeetuProvider({ children }: { children: React.ReactNode }) {
         normalizePools(
           prev.map((pool) => {
             if (pool.id !== poolId) return pool;
-            if (pool.is_locked) return pool;
             const hasCycle = pool.seetu_cycles.some((c) => c.id === cycleId);
             if (!hasCycle) return pool;
             return {
@@ -707,6 +704,7 @@ export function SeetuProvider({ children }: { children: React.ReactNode }) {
       lockPool,
       unlockPool,
     ]
+    // unlockPool closes over pools, which is already in the deps above
   );
 
   return (

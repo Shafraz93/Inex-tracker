@@ -1,5 +1,6 @@
 "use client";
 
+import * as React from "react";
 import type { ComponentProps } from "react";
 import { ChevronDown, Lock, Plus, Trash2, Unlock } from "lucide-react";
 import Link from "next/link";
@@ -18,6 +19,13 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
@@ -71,9 +79,113 @@ export function SeetuPoolsPanel() {
 
   const locked = selected?.is_locked ?? false;
 
+  const [openRowIds, setOpenRowIds] = React.useState<Set<string>>(() => new Set());
+
+  React.useEffect(() => {
+    setOpenRowIds(new Set());
+  }, [selected?.id]);
+
+  function toggleRow(id: string) {
+    setOpenRowIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  const [deleteOpen, setDeleteOpen] = React.useState(false);
+  const [deletePw, setDeletePw] = React.useState("");
+  const [deleteError, setDeleteError] = React.useState<string | null>(null);
+
+  const [showLockForm, setShowLockForm] = React.useState(false);
+  const [lockPw, setLockPw] = React.useState("");
+  const [lockPwConfirm, setLockPwConfirm] = React.useState("");
+  const [lockFormError, setLockFormError] = React.useState<string | null>(null);
+
+  const [unlockPw, setUnlockPw] = React.useState("");
+  const [unlockError, setUnlockError] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    setDeleteOpen(false);
+    setDeletePw("");
+    setDeleteError(null);
+    setShowLockForm(false);
+    setLockPw("");
+    setLockPwConfirm("");
+    setLockFormError(null);
+    setUnlockPw("");
+    setUnlockError(null);
+  }, [selected?.id]);
+
+  function onLock(e: React.FormEvent) {
+    e.preventDefault();
+    if (!lockPw.trim()) {
+      setLockFormError("Enter a password.");
+      return;
+    }
+    if (lockPw !== lockPwConfirm) {
+      setLockFormError("Passwords do not match.");
+      return;
+    }
+    if (selected) lockPool(selected.id, lockPw);
+    setShowLockForm(false);
+    setLockPw("");
+    setLockPwConfirm("");
+    setLockFormError(null);
+  }
+
+  function onUnlock(e: React.FormEvent) {
+    e.preventDefault();
+    if (!selected) return;
+    const ok = unlockPool(selected.id, unlockPw);
+    if (!ok) {
+      setUnlockError("Incorrect password.");
+    } else {
+      setUnlockPw("");
+      setUnlockError(null);
+    }
+  }
+
   if (!hydrated) {
     return (
-      <p className="text-muted-foreground text-sm">Loading saved data…</p>
+      <div className="flex flex-col gap-8">
+        {/* pool selector */}
+        <div className="flex flex-col gap-2">
+          <div className="h-4 w-10 animate-pulse rounded bg-muted" />
+          <div className="h-10 w-full max-w-md animate-pulse rounded-lg bg-muted" />
+        </div>
+
+        {/* pool settings card */}
+        <div className="rounded-xl border border-border p-4 flex flex-col gap-4">
+          <div className="flex flex-col gap-2">
+            <div className="h-3 w-8 animate-pulse rounded bg-muted" />
+            <div className="h-9 w-full max-w-sm animate-pulse rounded-lg bg-muted" />
+          </div>
+          <div className="flex flex-col gap-2">
+            <div className="h-3 w-24 animate-pulse rounded bg-muted" />
+            <div className="h-9 w-44 animate-pulse rounded-lg bg-muted" />
+          </div>
+          <div className="flex flex-col gap-2">
+            <div className="h-3 w-32 animate-pulse rounded bg-muted" />
+            <div className="h-9 w-44 animate-pulse rounded-lg bg-muted" />
+          </div>
+        </div>
+
+        {/* roster section */}
+        <div className="flex flex-col gap-3">
+          <div className="h-5 w-40 animate-pulse rounded bg-muted" />
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="flex items-center justify-between rounded-xl border border-border px-4 py-3">
+              <div className="flex flex-col gap-1.5">
+                <div className="h-4 w-16 animate-pulse rounded bg-muted" />
+                <div className="h-3 w-32 animate-pulse rounded bg-muted" />
+              </div>
+              <div className="h-4 w-4 animate-pulse rounded bg-muted" />
+            </div>
+          ))}
+        </div>
+      </div>
     );
   }
 
@@ -102,7 +214,7 @@ export function SeetuPoolsPanel() {
               onSubmit={createPool}
               className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end"
             >
-              <div className="grid min-w-[200px] flex-1 gap-2">
+              <div className="grid min-w-50 flex-1 gap-2">
                 <Label htmlFor="seetu-title">Pool name</Label>
                 <Input
                   id="seetu-title"
@@ -189,25 +301,106 @@ export function SeetuPoolsPanel() {
           </div>
 
           {locked ? (
-            <div className="space-y-2 rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm">
-              <p className="font-medium text-amber-900 dark:text-amber-100">
-                This pool is locked
-              </p>
+            <div className="space-y-3 rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm">
+              <div className="flex items-center gap-2">
+                <Lock className="size-4 shrink-0 text-amber-700 dark:text-amber-300" />
+                <p className="font-medium text-amber-900 dark:text-amber-100">
+                  This pool is locked
+                </p>
+              </div>
               <p className="text-muted-foreground leading-relaxed">
-                Roster, settings, and payout checkmarks cannot be changed.
-                Unlock if you need to edit again.
+                Enter the password to unlock and edit roster, amounts, or
+                payment tracking.
               </p>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="border-amber-600/50"
-                onClick={() => unlockPool(selected.id)}
-              >
-                <Unlock className="size-4" />
-                Unlock pool
-              </Button>
+              <form onSubmit={onUnlock} className="flex flex-col gap-2 sm:flex-row sm:items-start">
+                <div className="flex flex-col gap-1">
+                  <Input
+                    type="password"
+                    placeholder="Password"
+                    value={unlockPw}
+                    onChange={(e) => {
+                      setUnlockPw(e.target.value);
+                      setUnlockError(null);
+                    }}
+                    className="h-8 w-48 text-sm"
+                    autoComplete="current-password"
+                  />
+                  {unlockError ? (
+                    <p className="text-destructive text-xs">{unlockError}</p>
+                  ) : null}
+                </div>
+                <Button
+                  type="submit"
+                  variant="outline"
+                  size="sm"
+                  className="border-amber-600/50 shrink-0"
+                >
+                  <Unlock className="size-4" />
+                  Unlock
+                </Button>
+              </form>
             </div>
+          ) : showLockForm ? (
+            <form
+              onSubmit={onLock}
+              className="flex flex-col gap-3 rounded-xl border border-border bg-muted/30 px-4 py-3 text-sm"
+            >
+              <p className="font-medium">Set a lock password</p>
+              <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-start">
+                <div className="flex flex-col gap-1">
+                  <Label htmlFor="lock-pw" className="text-xs">Password</Label>
+                  <Input
+                    id="lock-pw"
+                    type="password"
+                    placeholder="Password"
+                    value={lockPw}
+                    onChange={(e) => {
+                      setLockPw(e.target.value);
+                      setLockFormError(null);
+                    }}
+                    className="h-8 w-48 text-sm"
+                    autoComplete="new-password"
+                  />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <Label htmlFor="lock-pw-confirm" className="text-xs">Confirm password</Label>
+                  <Input
+                    id="lock-pw-confirm"
+                    type="password"
+                    placeholder="Confirm"
+                    value={lockPwConfirm}
+                    onChange={(e) => {
+                      setLockPwConfirm(e.target.value);
+                      setLockFormError(null);
+                    }}
+                    className="h-8 w-48 text-sm"
+                    autoComplete="new-password"
+                  />
+                </div>
+              </div>
+              {lockFormError ? (
+                <p className="text-destructive text-xs">{lockFormError}</p>
+              ) : null}
+              <div className="flex gap-2">
+                <Button type="submit" size="sm">
+                  <Lock className="size-4" />
+                  Lock pool
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setShowLockForm(false);
+                    setLockPw("");
+                    setLockPwConfirm("");
+                    setLockFormError(null);
+                  }}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </form>
           ) : selected.seetu_cycles.length > 0 ? (
             <div className="flex flex-col gap-2 rounded-xl border border-border bg-muted/30 px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between">
               <p className="text-muted-foreground leading-relaxed">
@@ -219,7 +412,7 @@ export function SeetuPoolsPanel() {
                 variant="secondary"
                 size="sm"
                 className="shrink-0"
-                onClick={() => lockPool(selected.id)}
+                onClick={() => setShowLockForm(true)}
               >
                 <Lock className="size-4" />
                 Lock pool
@@ -329,10 +522,73 @@ export function SeetuPoolsPanel() {
                 variant="destructive"
                 size="sm"
                 className="shrink-0"
-                onClick={() => deletePool(selected.id)}
+                onClick={() => setDeleteOpen(true)}
               >
                 Delete pool
               </Button>
+
+              <Dialog
+                open={deleteOpen}
+                onOpenChange={(open) => {
+                  setDeleteOpen(open);
+                  if (!open) { setDeletePw(""); setDeleteError(null); }
+                }}
+              >
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Delete pool</DialogTitle>
+                  </DialogHeader>
+                  <form
+                    className="flex flex-col gap-4 px-4 py-4"
+                    onSubmit={async (e) => {
+                      e.preventDefault();
+                      if (selected.lock_password && deletePw !== selected.lock_password) {
+                        setDeleteError("Incorrect password.");
+                        return;
+                      }
+                      setDeleteOpen(false);
+                      setDeletePw("");
+                      setDeleteError(null);
+                      await deletePool(selected.id);
+                    }}
+                  >
+                    <p className="text-muted-foreground text-sm">
+                      This will permanently delete <strong className="text-foreground">{selected.title}</strong> and all its roster, cycles, and payments.
+                    </p>
+                    {selected.lock_password ? (
+                      <div className="flex flex-col gap-1">
+                        <Label htmlFor="delete-pw">Enter password to confirm</Label>
+                        <Input
+                          id="delete-pw"
+                          type="password"
+                          placeholder="Password"
+                          value={deletePw}
+                          autoComplete="current-password"
+                          onChange={(e) => {
+                            setDeletePw(e.target.value);
+                            setDeleteError(null);
+                          }}
+                        />
+                        {deleteError ? (
+                          <p className="text-destructive text-xs">{deleteError}</p>
+                        ) : null}
+                      </div>
+                    ) : null}
+                    <DialogFooter>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => { setDeleteOpen(false); setDeletePw(""); setDeleteError(null); }}
+                      >
+                        Cancel
+                      </Button>
+                      <Button type="submit" variant="destructive">
+                        Delete
+                      </Button>
+                    </DialogFooter>
+                  </form>
+                </DialogContent>
+              </Dialog>
             </CardHeader>
           </Card>
 
@@ -361,65 +617,45 @@ export function SeetuPoolsPanel() {
                     return (
                       <li
                         key={row.id}
-                        className="bg-card rounded-xl border border-border p-4"
+                        className="bg-card overflow-hidden rounded-xl border border-border"
                       >
-                        <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
-                          <div>
-                            <p className="text-sm font-semibold">
-                              Turn #{turn}{" "}
-                              <span className="text-muted-foreground font-normal">
-                                · {formatRowAmountParts(row, selected)} →{" "}
-                                {formatMoney(total)}
-                                {mismatch ? (
-                                  <span className="text-amber-600 dark:text-amber-400">
-                                    {" "}
-                                    (≠ slot {formatMoney(slot)})
-                                  </span>
-                                ) : null}
-                              </span>
-                            </p>
-                            <p className="text-muted-foreground text-xs">
+                        <button
+                          type="button"
+                          className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left"
+                          onClick={() => toggleRow(row.id)}
+                        >
+                          <div className="flex min-w-0 flex-col gap-0.5">
+                            <span className="text-foreground text-sm font-semibold">
+                              Turn #{turn}
+                              {mismatch ? (
+                                <span className="text-amber-500 ml-1.5 text-xs font-normal">
+                                  ≠ slot {formatMoney(slot)}
+                                </span>
+                              ) : null}
+                            </span>
+                            <span className="text-muted-foreground text-xs">
                               {rowNamesJoined(row) || "—"}
-                            </p>
+                              {" · "}
+                              {formatMoney(total)}
+                            </span>
                           </div>
-                          <div className="flex flex-wrap gap-1">
-                            {row.seetu_row_payers.length > 0 ? (
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="xs"
-                                disabled={locked}
-                                onClick={() =>
-                                  splitRowEqually(selected.id, row.id)
-                                }
-                              >
-                                Equal split this row
-                              </Button>
-                            ) : null}
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon-xs"
-                              className="text-muted-foreground"
-                              disabled={locked}
-                              aria-label="Delete row"
-                              onClick={() =>
-                                deleteRosterRow(row.id, selected.id)
-                              }
-                            >
-                              <Trash2 className="size-4" />
-                            </Button>
-                          </div>
-                        </div>
+                          <ChevronDown
+                            className={cn(
+                              "text-muted-foreground size-4 shrink-0 transition-transform duration-200",
+                              openRowIds.has(row.id) && "rotate-180"
+                            )}
+                          />
+                        </button>
 
-                        <div className="space-y-2 border-t border-border pt-3">
+                        {openRowIds.has(row.id) ? (
+                        <div className="space-y-2 border-t border-border px-4 pb-4 pt-3">
                           {row.seetu_row_payers.map((p) => (
                             <div
                               key={p.id}
                               className="bg-muted/40 flex flex-col gap-2 rounded-lg p-3 sm:flex-row sm:items-end sm:gap-3"
                             >
                               <Input
-                                className="min-w-0 flex-1 sm:max-w-[180px]"
+                                className="min-w-0 flex-1 sm:max-w-45"
                                 aria-label="Member name"
                                 placeholder="Member"
                                 disabled={locked}
@@ -597,7 +833,32 @@ export function SeetuPoolsPanel() {
                               Add person
                             </Button>
                           </div>
+                          <div className="flex flex-wrap gap-1 border-t border-border pt-3">
+                            {row.seetu_row_payers.length > 0 ? (
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="xs"
+                                disabled={locked}
+                                onClick={() => splitRowEqually(selected.id, row.id)}
+                              >
+                                Equal split this row
+                              </Button>
+                            ) : null}
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon-xs"
+                              className="text-muted-foreground"
+                              disabled={locked}
+                              aria-label="Delete row"
+                              onClick={() => deleteRosterRow(row.id, selected.id)}
+                            >
+                              <Trash2 className="size-4" />
+                            </Button>
+                          </div>
                         </div>
+                        ) : null}
                       </li>
                     );
                   })}
